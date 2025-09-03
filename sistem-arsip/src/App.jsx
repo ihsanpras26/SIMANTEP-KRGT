@@ -428,7 +428,7 @@ export default function App() {
             }
 
             // Ambil data klasifikasi
-            const { data: klasifikasiData, error: klasifikasiError } = await supabase.from('klasifikasi').select('*').order('kode', { ascending: true }).limit(3000);
+            const { data: klasifikasiData, error: klasifikasiError } = await supabase.from('klasifikasi').select('*').order('kode', { ascending: true });
             if (klasifikasiError) {
                 console.error("Error fetching klasifikasi:", klasifikasiError);
                 showNotification(`Gagal memuat data klasifikasi: ${klasifikasiError.message || 'Terjadi kesalahan'}`, 'error');
