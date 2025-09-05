@@ -427,15 +427,32 @@ export default function App() {
                 setArsipList(arsipData || []);
             }
 
-            // Ambil data klasifikasi
-            const { data: klasifikasiData, error: klasifikasiError } = await supabase.from('klasifikasi').select('*').order('kode', { ascending: true });
-            if (klasifikasiError) {
-                console.error("Error fetching klasifikasi:", klasifikasiError);
-                showNotification(`Gagal memuat data klasifikasi: ${klasifikasiError.message || 'Terjadi kesalahan'}`, 'error');
-            } else {
-                const sorted = (klasifikasiData || []).slice().sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
-                setKlasifikasiList(sorted);
+            // Ambil semua data klasifikasi (mengatasi batas default 1000 baris PostgREST dengan paginasi)
+            const PAGE_SIZE = 1000;
+            let allKlasifikasi = [];
+            let from = 0;
+            let hasMore = true;
+            while (hasMore) {
+                const to = from + PAGE_SIZE - 1;
+                const { data: pageData, error: pageError } = await supabase
+                    .from('klasifikasi')
+                    .select('*')
+                    .order('kode', { ascending: true })
+                    .range(from, to);
+                if (pageError) {
+                    console.error("Error fetching klasifikasi:", pageError);
+                    showNotification(`Gagal memuat data klasifikasi: ${pageError.message || 'Terjadi kesalahan'}`, 'error');
+                    break;
+                }
+                allKlasifikasi = allKlasifikasi.concat(pageData || []);
+                if (!pageData || pageData.length < PAGE_SIZE) {
+                    hasMore = false;
+                } else {
+                    from += PAGE_SIZE;
+                }
             }
+            const sorted = (allKlasifikasi || []).slice().sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
+            setKlasifikasiList(sorted);
             
             setStoreLoading(false);
         };
@@ -1260,19 +1277,28 @@ const ArsipForm = ({ supabase, klasifikasiList, arsipToEdit, onFinish, showNotif
     // ... (Saya akan memasukkan JSX yang relevan di bawah ini)
     const groupedKlasifikasi = useMemo(() => {
         const sortedList = [...klasifikasiList].sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
-        const mainCategories = sortedList.filter(k => k.kode.length === 3);
-        const grouped = mainCategories.map(main => ({
-            ...main,
-            subItems: sortedList
-                .filter(sub => sub.kode.startsWith(main.kode + '.') && sub.kode.length > 3)
-                .sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }))
-        }));
-        // Tambahkan item yang tidak memiliki kategori utama
-        const orphanItems = sortedList.filter(item => {
-            const hasParent = mainCategories.some(main => item.kode.startsWith(main.kode + '.'));
-            return !hasParent && item.kode.length > 3;
+        // Ambil semua main code (3 digit pertama) dari seluruh item, termasuk yang tidak memiliki entri main 3 digit
+        const mainCodes = Array.from(new Set(sortedList.map(k => k.kode.split('.')[0])))
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        // Bentuk grup untuk setiap main code. Jika entri main 3 digit tidak ada, buat grup sintetis agar tetap muncul sebagai kategori
+        const grouped = mainCodes.map(code => {
+            const main = sortedList.find(k => k.kode === code) || null;
+            const subItems = sortedList
+                .filter(sub => sub.kode.startsWith(code + '.') && sub.kode.length > 3)
+                .sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
+            if (main) {
+                return { ...main, subItems };
+            }
+            return {
+                id: `synthetic-${code}`,
+                kode: code,
+                deskripsi: '(Kategori utama belum terdaftar)',
+                retensiAktif: '',
+                retensiInaktif: '',
+                subItems
+            };
         });
-        return [...grouped, ...orphanItems.map(item => ({ ...item, subItems: [] }))];
+        return grouped;
     }, [klasifikasiList]);
 
     return (
@@ -1743,6 +1769,13 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
         acc[mainCode].push(k);
         return acc;
     }, {});
+    // Pastikan setiap main code muncul sebagai grup walaupun entri 3 digit tidak ada
+    const allMainCodes = Array.from(new Set(filteredKlasifikasi.map(k => k.kode.split('.')[0])));
+    allMainCodes.forEach(code => {
+        if (!groupedKlasifikasi[code]) {
+            groupedKlasifikasi[code] = [];
+        }
+    });
 
     return (
         <div className="space-y-6">
