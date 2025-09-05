@@ -433,7 +433,8 @@ export default function App() {
                 console.error("Error fetching klasifikasi:", klasifikasiError);
                 showNotification(`Gagal memuat data klasifikasi: ${klasifikasiError.message || 'Terjadi kesalahan'}`, 'error');
             } else {
-                setKlasifikasiList(klasifikasiData || []);
+                const sorted = (klasifikasiData || []).slice().sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
+                setKlasifikasiList(sorted);
             }
             
             setStoreLoading(false);
@@ -1262,7 +1263,9 @@ const ArsipForm = ({ supabase, klasifikasiList, arsipToEdit, onFinish, showNotif
         const mainCategories = sortedList.filter(k => k.kode.length === 3);
         const grouped = mainCategories.map(main => ({
             ...main,
-            subItems: sortedList.filter(sub => sub.kode.startsWith(main.kode + '.') && sub.kode.length > 3)
+            subItems: sortedList
+                .filter(sub => sub.kode.startsWith(main.kode + '.') && sub.kode.length > 3)
+                .sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }))
         }));
         // Tambahkan item yang tidak memiliki kategori utama
         const orphanItems = sortedList.filter(item => {
@@ -1787,7 +1790,7 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                     })
                     .map(([mainCode, items]) => {
                     const mainItem = items.find(i => i.kode === mainCode);
-                    const subItems = items.filter(i => i.kode !== mainCode).sort((a, b) => a.kode.localeCompare(b.kode));
+                    const subItems = items.filter(i => i.kode !== mainCode).sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
                     const isExpanded = selectedCategory === mainCode;
                                 
                                 return (
