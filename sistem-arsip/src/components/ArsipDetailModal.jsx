@@ -1,259 +1,240 @@
 import React from 'react';
-import { XCircle, FileText, CheckCircle, AlertCircle, FolderKanban, Clock, Eye, Download } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { X, FileText, Calendar, Tag, Download, Eye, Clock, CheckCircle, AlertCircle, Folder, User, Send, File } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+export default function ArsipDetailModal({ arsip, onClose, klasifikasiList = [] }) {
+  if (!arsip) return null;
 
-const ArsipDetailModal = ({ arsip, klasifikasiList, onClose }) => {
-    if (!arsip) return null;
+  const klasifikasi = klasifikasiList.find(k => k.kode === arsip.kodeKlasifikasi);
+  const isActive = new Date(arsip.tanggalRetensi) > new Date();
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-    const klasifikasi = klasifikasiList?.find(k => k.kode === arsip.kodeKlasifikasi);
-    const isActive = new Date(arsip.tanggalRetensi) > new Date();
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-    };
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return format(new Date(dateString), 'dd MMMM yyyy', { locale: id });
+  };
 
-    const formatDateTime = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden border border-gray-100 animate-slideUp">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-white relative">
-                    <button 
-                        onClick={onClose} 
-                        className="absolute top-6 right-6 text-white/80 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-white/10"
-                    >
-                        <XCircle size={24} />
-                    </button>
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
-                            <FileText size={28} />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold mb-1">Detail Arsip</h2>
-                            <p className="text-blue-100">Informasi lengkap dokumen</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-8 overflow-y-auto max-h-[calc(95vh-180px)]">
-                    {/* Document Overview */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8 border border-blue-200">
-                        <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2">{arsip.perihal}</h3>
-                                <p className="text-gray-600 mb-4">Nomor: {arsip.nomorSurat || 'Tidak ada nomor'}</p>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tanggal Surat</label>
-                                        <p className="text-gray-900 font-bold mt-1 text-lg">{formatDate(arsip.tanggalSurat)}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pengirim</label>
-                                        <p className="text-gray-900 font-bold mt-1">{arsip.pengirim || 'Tidak disebutkan'}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tujuan</label>
-                                        <p className="text-gray-900 font-bold mt-1">{arsip.tujuanSurat || 'Tidak disebutkan'}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Status Badge */}
-                            <div className="ml-6">
-                                <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-lg ${
-                                    isActive 
-                                        ? 'bg-emerald-100 text-emerald-800 border-2 border-emerald-300' 
-                                        : 'bg-red-100 text-red-800 border-2 border-red-300'
-                                }`}>
-                                    {isActive ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-                                    {isActive ? 'Aktif' : 'Inaktif'}
-                                </div>
-                                <p className="text-sm text-gray-600 mt-2 text-center">
-                                    Retensi: {formatDate(arsip.tanggalRetensi)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Left Column */}
-                        <div className="space-y-6">
-                            {/* Classification */}
-                            {arsip.kodeKlasifikasi && (
-                                <div className="bg-white border border-gray-200 rounded-xl p-6">
-                                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                                        <FolderKanban size={24} className="text-indigo-600" />
-                                        Klasifikasi
-                                    </h4>
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-3 rounded-xl border border-indigo-200">
-                                            <span className="font-mono font-bold text-indigo-700 text-lg">{arsip.kodeKlasifikasi}</span>
-                                        </div>
-                                        {klasifikasi && (
-                                            <div>
-                                                <p className="font-semibold text-gray-900 text-lg">{klasifikasi.deskripsi}</p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-medium">
-                                                        Aktif: {klasifikasi.retensiAktif} tahun
-                                                    </span>
-                                                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-medium">
-                                                        Inaktif: {klasifikasi.retensiInaktif} tahun
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Metadata */}
-                            <div className="bg-white border border-gray-200 rounded-xl p-6">
-                                <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                                    <Clock size={24} className="text-gray-600" />
-                                    Riwayat
-                                </h4>
-                                <div className="space-y-4">
-                                    <div className="bg-gray-50 p-4 rounded-lg">
-                                        <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Dibuat</label>
-                                        <p className="text-gray-900 font-bold mt-1">{formatDateTime(arsip.createdAt)}</p>
-                                    </div>
-                                    <div className="bg-gray-50 p-4 rounded-lg">
-                                        <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Terakhir Diperbarui</label>
-                                        <p className="text-gray-900 font-bold mt-1">{formatDateTime(arsip.updatedAt)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right Column */}
-                        <div className="space-y-6">
-                            {/* File Access */}
-                            {(arsip.googleDriveLink || arsip.filePath) && (
-                                <div className="bg-white border border-gray-200 rounded-xl p-6">
-                                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                                        <FileText size={24} className="text-blue-600" />
-                                        Dokumen Digital
-                                    </h4>
-                                    
-                                    <div className="space-y-4">
-                                        {/* File Type Info */}
-                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
-                                                    {arsip.googleDriveLink ? (
-                                                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M12.01 2C6.5 2 2.01 6.5 2.01 12s4.49 10 9.99 10c5.51 0 10-4.5 10-10S17.52 2 12.01 2z"/>
-                                                        </svg>
-                                                    ) : (
-                                                        <FileText size={24} />
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-gray-900 text-lg">
-                                                        {arsip.googleDriveLink ? 'Google Drive' : 'File Server'}
-                                                    </p>
-                                                    <p className="text-gray-600">
-                                                        {arsip.googleDriveLink ? 'Dokumen cloud' : 'File lokal'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <button
-                                                onClick={() => {
-                                                    if (arsip.googleDriveLink) {
-                                                        window.open(arsip.googleDriveLink, '_blank');
-                                                    } else if (arsip.filePath) {
-                                                        window.open(`${supabaseUrl}/storage/v1/object/public/arsip-files/${arsip.filePath}`, '_blank');
-                                                    }
-                                                }}
-                                                className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200 font-semibold shadow-lg"
-                                            >
-                                                <Eye size={20} />
-                                                Lihat
-                                            </button>
-                                            <button
-                                                onClick={async () => {
-                                                    try {
-                                                        let downloadUrl;
-                                                        let fileName = `${arsip.nomorSurat || 'arsip'}.pdf`;
-                                                        
-                                                        if (arsip.googleDriveLink) {
-                                                            const fileId = arsip.googleDriveLink.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
-                                                            if (fileId) {
-                                                                downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                                                            } else {
-                                                                downloadUrl = arsip.googleDriveLink;
-                                                            }
-                                                        } else if (arsip.filePath) {
-                                                            downloadUrl = `${supabaseUrl}/storage/v1/object/public/arsip-files/${arsip.filePath}`;
-                                                            fileName = arsip.filePath.split('/').pop() || fileName;
-                                                        }
-                                                        
-                                                        const link = document.createElement('a');
-                                                        link.href = downloadUrl;
-                                                        link.download = fileName;
-                                                        link.target = '_blank';
-                                                        document.body.appendChild(link);
-                                                        link.click();
-                                                        document.body.removeChild(link);
-                                                        
-                                                        toast.success('Download dimulai!');
-                                                    } catch (error) {
-                                                        toast.error('Gagal mendownload file');
-                                                    }
-                                                }}
-                                                className="flex items-center justify-center gap-2 px-6 py-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors duration-200 font-semibold shadow-lg"
-                                            >
-                                                <Download size={20} />
-                                                Download
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="bg-gray-50 px-8 py-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-500">
-                            ID: <span className="font-mono font-medium">{arsip.id}</span>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200 font-semibold"
-                        >
-                            Tutup
-                        </button>
-                    </div>
-                </div>
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm"
+        />
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        >
+          {/* Header */}
+          <div className="px-6 md:px-10 py-6 border-b border-neutral-100 flex justify-between items-start bg-white sticky top-0 z-10">
+            <div className="flex-1 pr-8">
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${
+                  isActive 
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                    : 'bg-amber-50 text-amber-700 border border-amber-100'
+                }`}>
+                  {isActive ? <CheckCircle size={12} strokeWidth={3} /> : <AlertCircle size={12} strokeWidth={3} />}
+                  {isActive ? 'Aktif' : 'Inaktif'}
+                </span>
+                <span className="text-neutral-500 text-xs font-mono px-2.5 py-1 bg-neutral-100 rounded-full">
+                  {arsip.nomorArsip}
+                </span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-display font-bold text-neutral-900 leading-tight">
+                {arsip.perihal}
+              </h2>
             </div>
-        </div>
-    );
-};
+            <button 
+              onClick={onClose}
+              className="p-2 -mr-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 rounded-xl transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
 
-export default ArsipDetailModal;
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+              
+              {/* Left Column: Main Info */}
+              <div className="md:col-span-7 space-y-8">
+                {/* File Preview Placeholder */}
+                <div className="bg-neutral-50 rounded-2xl p-6 border border-neutral-100 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary-600">
+                    <FileText size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">{arsip.nomorSurat || 'Tanpa Nomor'}</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Dokumen Arsip Digital</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    Informasi Detail
+                  </h3>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5 block">Nomor Surat</label>
+                        <p className="text-neutral-900 font-medium text-base">{arsip.nomorSurat || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5 block">Tanggal Surat</label>
+                        <div className="flex items-center gap-2 text-neutral-900">
+                          <Calendar size={16} className="text-neutral-400" />
+                          <span className="font-medium text-base">{formatDate(arsip.tanggalSurat)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5 block">Klasifikasi</label>
+                      <div className="bg-white border border-neutral-200 rounded-xl p-3 flex items-start gap-3">
+                        <div className="bg-primary-50 text-primary-700 font-mono font-bold px-2 py-1 rounded text-sm">
+                          {arsip.kodeKlasifikasi}
+                        </div>
+                        {klasifikasi && (
+                          <p className="text-sm text-neutral-700 leading-relaxed pt-0.5">
+                            {klasifikasi.deskripsi}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                      <div>
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5 block">Pengirim</label>
+                        <div className="flex items-center gap-2">
+                          <User size={16} className="text-neutral-400" />
+                          <p className="text-neutral-900 font-medium">{arsip.pengirim || '-'}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5 block">Tujuan</label>
+                        <div className="flex items-center gap-2">
+                          <Send size={16} className="text-neutral-400" />
+                          <p className="text-neutral-900 font-medium">{arsip.tujuanSurat || '-'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {arsip.deskripsi && (
+                  <div className="pt-2">
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Keterangan</label>
+                    <p className="text-neutral-700 text-sm leading-relaxed bg-neutral-50 p-4 rounded-xl border border-neutral-100">
+                      {arsip.deskripsi}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Actions & Meta */}
+              <div className="md:col-span-5 space-y-6">
+                <div className="bg-neutral-900 text-white rounded-2xl p-6 shadow-xl shadow-neutral-200/50">
+                  <h3 className="text-sm font-bold text-neutral-200 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    Aksi Dokumen
+                  </h3>
+                  <div className="space-y-3">
+                    {(arsip.googleDriveLink || arsip.filePath) ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            if (arsip.googleDriveLink) {
+                              window.open(arsip.googleDriveLink, '_blank');
+                            } else if (arsip.filePath) {
+                              window.open(`${supabaseUrl}/storage/v1/object/public/arsip-files/${arsip.filePath}`, '_blank');
+                            }
+                          }}
+                          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white text-neutral-900 rounded-xl hover:bg-neutral-100 transition-all font-bold"
+                        >
+                          <Eye size={18} />
+                          Preview File
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              let downloadUrl;
+                              let fileName = `${arsip.nomorSurat || 'arsip'}.pdf`;
+                              
+                              if (arsip.googleDriveLink) {
+                                const fileId = arsip.googleDriveLink.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+                                if (fileId) {
+                                  downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                                } else {
+                                  downloadUrl = arsip.googleDriveLink;
+                                }
+                              } else if (arsip.filePath) {
+                                downloadUrl = `${supabaseUrl}/storage/v1/object/public/arsip-files/${arsip.filePath}`;
+                                fileName = arsip.filePath.split('/').pop() || fileName;
+                              }
+                              
+                              const link = document.createElement('a');
+                              link.href = downloadUrl;
+                              link.download = fileName;
+                              link.target = '_blank';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            } catch (error) {
+                              console.error('Download failed', error);
+                            }
+                          }}
+                          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-xl hover:bg-neutral-700 transition-all font-medium"
+                        >
+                          <Download size={18} />
+                          Download
+                        </button>
+                      </>
+                    ) : (
+                      <div className="p-4 bg-neutral-800 rounded-xl text-center text-neutral-400 text-sm">
+                        File tidak tersedia
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6">
+                  <h3 className="text-sm font-bold text-neutral-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    Masa Retensi
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-1 w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      <div>
+                        <p className="text-sm font-medium text-neutral-900">
+                          {isActive ? 'Masih Berlaku' : 'Sudah Berakhir'}
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-0.5">
+                          {isActive 
+                            ? 'Dokumen ini masih dalam masa penyimpanan aktif.' 
+                            : 'Dokumen ini telah melewati masa retensi dan dapat dipindahkan ke inaktif.'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-neutral-100">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1 block">Tanggal Berakhir</label>
+                      <p className="text-neutral-900 font-medium">{formatDate(arsip.tanggalRetensi)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+}

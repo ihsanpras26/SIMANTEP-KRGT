@@ -42,11 +42,7 @@ export function Header({
           className="hidden md:flex items-center gap-3 px-4 py-2.5 bg-neutral-100/50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-sm text-neutral-500 transition-all duration-200 group w-64"
         >
           <Search size={18} className="text-neutral-400 group-hover:text-primary-500 transition-colors" />
-          <span className="flex-1 text-left">Cari apa saja...</span>
-          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-neutral-200 text-xs font-medium text-neutral-400">
-            <Command size={10} />
-            <span>K</span>
-          </div>
+          <span className="flex-1 text-left">Cari Arsip Disini</span>
         </button>
 
         <div className="h-8 w-px bg-neutral-200 hidden sm:block" />

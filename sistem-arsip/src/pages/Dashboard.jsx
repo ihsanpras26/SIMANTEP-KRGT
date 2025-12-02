@@ -101,10 +101,10 @@ export default function Dashboard({
     },
   ];
 
-  // Combine and sort recent archives by created_at
+  // Combine and sort recent archives by tanggalSurat
   const recentArchives = useMemo(() => {
     const all = [...activeArchives, ...inactiveArchives];
-    return all.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+    return all.sort((a, b) => new Date(b.tanggalSurat) - new Date(a.tanggalSurat)).slice(0, 5);
   }, [activeArchives, inactiveArchives]);
 
   return (
