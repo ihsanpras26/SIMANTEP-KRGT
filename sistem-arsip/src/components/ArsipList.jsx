@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Trash2, 
-  Edit, 
-  Eye, 
-  MoreHorizontal, 
+import {
+  Search,
+  Filter,
+  Download,
+  Trash2,
+  Edit,
+  Eye,
+  MoreHorizontal,
   Calendar,
   FileText,
   Tag,
@@ -21,14 +21,14 @@ import { id } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { cn } from '../utils/cn';
 
-export default function ArsipList({ 
-  title, 
-  arsipList, 
-  klasifikasiList, 
-  setEditingArsip, 
-  supabase, 
-  listType, 
-  setDeleteConfirmModal, 
+export default function ArsipList({
+  title,
+  arsipList,
+  klasifikasiList,
+  setEditingArsip,
+  supabase,
+  listType,
+  setDeleteConfirmModal,
   setSelectedArsipDetail,
   initialFilter = 'all'
 }) {
@@ -47,28 +47,40 @@ export default function ArsipList({
     setFilterStatus(initialFilter);
   }, [initialFilter]);
 
+  // Click outside to close filters
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showFilters && !event.target.closest('.filter-container')) {
+        setShowFilters(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showFilters]);
+
   // Filter Logic
   const filteredData = useMemo(() => {
     return arsipList.filter(item => {
-      const matchesSearch = 
+      const matchesSearch =
         item.perihal.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.nomorSurat.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
-      const matchesStatus = 
-        filterStatus === 'all' ? true :
-        filterStatus === 'active' ? !isInactive :
-        isInactive;
 
-      const matchesKlasifikasi = 
+      const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
+      const matchesStatus =
+        filterStatus === 'all' ? true :
+          filterStatus === 'active' ? !isInactive :
+            isInactive;
+
+      const matchesKlasifikasi =
         filterKlasifikasi === 'all' ? true :
-        item.kodeKlasifikasi === filterKlasifikasi;
+          item.kodeKlasifikasi === filterKlasifikasi;
 
       return matchesSearch && matchesStatus && matchesKlasifikasi;
     }).sort((a, b) => {
       const aValue = a[sortBy];
       const bValue = b[sortBy];
-      return sortOrder === 'asc' 
+      return sortOrder === 'asc'
         ? (aValue > bValue ? 1 : -1)
         : (aValue < bValue ? 1 : -1);
     });
@@ -105,25 +117,28 @@ export default function ArsipList({
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-card border border-neutral-100">
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+          <div className="relative group flex items-center bg-neutral-50 border border-neutral-200 rounded-lg w-64 focus-within:ring-2 focus-within:ring-primary-100 transition-all">
+            <Search className="absolute left-3 text-neutral-400 group-focus-within:text-primary-500 transition-colors" size={18} />
             <input
               type="text"
               placeholder="Cari surat..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg w-64 focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all"
+              style={{ outline: 'none', boxShadow: 'none' }}
+              className="pl-10 pr-4 py-2 bg-transparent border-none outline-none focus:outline-none ring-0 focus:ring-0 appearance-none w-full text-sm"
             />
           </div>
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              "p-2 rounded-lg border transition-colors",
-              showFilters ? "bg-primary-50 border-primary-200 text-primary-600" : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-            )}
-          >
-            <Filter size={20} />
-          </button>
+          <div className="relative filter-container">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "p-2 rounded-lg border transition-colors",
+                showFilters ? "bg-primary-50 border-primary-200 text-primary-600" : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+              )}
+            >
+              <Filter size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -147,7 +162,7 @@ export default function ArsipList({
               <Grid size={18} />
             </button>
           </div>
-          <button 
+          <button
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
           >
@@ -164,12 +179,12 @@ export default function ArsipList({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+            className="overflow-hidden filter-container"
           >
             <div className="bg-white p-4 rounded-xl shadow-card border border-neutral-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-medium text-neutral-500 mb-1 block">Status Arsip</label>
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm"
@@ -181,7 +196,7 @@ export default function ArsipList({
               </div>
               <div>
                 <label className="text-xs font-medium text-neutral-500 mb-1 block">Klasifikasi</label>
-                <select 
+                <select
                   value={filterKlasifikasi}
                   onChange={(e) => setFilterKlasifikasi(e.target.value)}
                   className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm"
@@ -194,7 +209,7 @@ export default function ArsipList({
               </div>
               <div>
                 <label className="text-xs font-medium text-neutral-500 mb-1 block">Urutkan</label>
-                <select 
+                <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm"
@@ -216,11 +231,8 @@ export default function ArsipList({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-neutral-50 border-b border-neutral-100">
-                  <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider w-12">
-                    <input type="checkbox" className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500" />
-                  </th>
-                  <th 
-                    className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
+                  <th
+                    className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors pl-6"
                     onClick={() => toggleSort('nomorSurat')}
                   >
                     <div className="flex items-center gap-1">
@@ -229,7 +241,7 @@ export default function ArsipList({
                     </div>
                   </th>
                   <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Perihal</th>
-                  <th 
+                  <th
                     className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
                     onClick={() => toggleSort('tanggalSurat')}
                   >
@@ -239,19 +251,19 @@ export default function ArsipList({
                     </div>
                   </th>
                   <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Klasifikasi</th>
-                  <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Status</th>
-                  <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider text-right">Aksi</th>
+                  <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider pr-6">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {filteredData.map((item) => {
                   const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
                   return (
-                    <tr key={item.id} className="group hover:bg-neutral-50 transition-colors">
-                      <td className="p-4">
-                        <input type="checkbox" className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500" />
-                      </td>
-                      <td className="p-4 font-mono text-sm text-neutral-600">{item.nomorSurat}</td>
+                    <tr
+                      key={item.id}
+                      className="group hover:bg-neutral-50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedArsipDetail(item)}
+                    >
+                      <td className="p-4 font-mono text-sm text-neutral-600 pl-6">{item.nomorSurat}</td>
                       <td className="p-4">
                         <div className="font-medium text-neutral-900">{item.perihal}</div>
                         <div className="text-xs text-neutral-500 truncate max-w-[200px]">{item.deskripsi}</div>
@@ -264,44 +276,15 @@ export default function ArsipList({
                           {item.kodeKlasifikasi}
                         </span>
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 pr-6">
                         <span className={cn(
                           "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                          isInactive 
-                            ? "bg-neutral-100 text-neutral-600 border-neutral-200" 
+                          isInactive
+                            ? "bg-neutral-100 text-neutral-600 border-neutral-200"
                             : "bg-success-50 text-success-700 border-success-100"
                         )}>
                           {isInactive ? 'Inaktif' : 'Aktif'}
                         </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => setSelectedArsipDetail(item)}
-                            className="p-1.5 text-neutral-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="Lihat Detail"
-                          >
-                            <Eye size={16} />
-                          </button>
-                          <button 
-                            onClick={() => setEditingArsip(item)}
-                            className="p-1.5 text-neutral-500 hover:text-warning-600 hover:bg-warning-50 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            onClick={() => setDeleteConfirmModal({ 
-                              show: true, 
-                              id: item.id, 
-                              message: `Apakah Anda yakin ingin menghapus arsip "${item.perihal}"?` 
-                            })}
-                            className="p-1.5 text-neutral-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
-                            title="Hapus"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   );
@@ -328,13 +311,13 @@ export default function ArsipList({
                     {item.kodeKlasifikasi}
                   </span>
                   <div className="flex gap-1">
-                    <button 
+                    <button
                       onClick={() => setSelectedArsipDetail(item)}
                       className="p-1.5 text-neutral-400 hover:text-primary-600 rounded-lg transition-colors"
                     >
                       <Eye size={16} />
                     </button>
-                    <button 
+                    <button
                       onClick={() => setEditingArsip(item)}
                       className="p-1.5 text-neutral-400 hover:text-warning-600 rounded-lg transition-colors"
                     >
@@ -342,10 +325,10 @@ export default function ArsipList({
                     </button>
                   </div>
                 </div>
-                
+
                 <h3 className="font-bold text-neutral-900 mb-1 line-clamp-2" title={item.perihal}>{item.perihal}</h3>
                 <p className="font-mono text-xs text-neutral-500 mb-4">{item.nomorSurat}</p>
-                
+
                 <div className="flex items-center gap-2 text-xs text-neutral-500 mb-4">
                   <Calendar size={14} />
                   <span>{format(new Date(item.tanggalSurat), 'dd MMM yyyy', { locale: id })}</span>
@@ -359,9 +342,9 @@ export default function ArsipList({
                     {isInactive ? 'Inaktif' : 'Aktif'}
                   </span>
                   {item.fileUrl && (
-                    <a 
-                      href={item.fileUrl} 
-                      target="_blank" 
+                    <a
+                      href={item.fileUrl}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
                     >

@@ -1,22 +1,24 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
+import Tooltip from '../components/Tooltip';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
   ResponsiveContainer,
   AreaChart,
   Area
 } from 'recharts';
-import { 
-  FileText, 
-  CheckCircle, 
-  Clock, 
-  Archive, 
+import {
+  FileText,
+  CheckCircle,
+  Clock,
+  Archive,
   TrendingUp,
+  TrendingDown,
   Activity,
   FolderOpen,
   ArchiveRestore,
@@ -27,10 +29,11 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
-export default function Dashboard({ 
-  stats, 
-  activeArchives, 
-  inactiveArchives, 
+export default function Dashboard({
+  stats,
+  trends,
+  activeArchives,
+  inactiveArchives,
   archivesByYear,
   navigate,
   setEditingArsip,
@@ -43,13 +46,13 @@ export default function Dashboard({
     if (chartFilter === 'Tahun Ini') {
       const currentYear = new Date().getFullYear();
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
+        'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
         'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
       ];
-      
+
       // Initialize monthly data
       const monthlyData = months.map(m => ({ name: m, Aktif: 0, Inaktif: 0 }));
-      
+
       // Helper to process archives
       const processArchives = (list, type) => {
         list.forEach(arsip => {
@@ -62,7 +65,7 @@ export default function Dashboard({
 
       processArchives(activeArchives, 'Aktif');
       processArchives(inactiveArchives, 'Inaktif');
-      
+
       return monthlyData;
     } else {
       // 5 Tahun Terakhir
@@ -71,32 +74,54 @@ export default function Dashboard({
     }
   }, [chartFilter, activeArchives, inactiveArchives, archivesByYear]);
 
+  const formatTrend = (value) => {
+    const val = value || 0;
+    return val > 0 ? `+${val}%` : `${val}%`;
+  };
+
+  const getTrendStyle = (value) => {
+    const val = value || 0;
+    if (val > 0) return 'text-emerald-600 bg-emerald-50';
+    if (val < 0) return 'text-red-600 bg-red-50';
+    return 'text-neutral-600 bg-neutral-100';
+  };
+
+  const getTrendIcon = (value) => {
+    return (value || 0) >= 0 ? TrendingUp : TrendingDown;
+  };
+
   const statCards = [
-    { 
-      title: 'Total Arsip', 
-      value: stats.total, 
-      icon: Archive, 
+    {
+      title: 'Total Arsip',
+      value: stats.total,
+      icon: Archive,
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600',
-      trend: '+12%',
+      trend: formatTrend(trends?.total),
+      trendStyle: getTrendStyle(trends?.total),
+      TrendIcon: getTrendIcon(trends?.total),
       onClick: () => navigate('semua', 'all')
     },
-    { 
-      title: 'Arsip Aktif', 
-      value: stats.active, 
-      icon: FileCheck, 
+    {
+      title: 'Arsip Aktif',
+      value: stats.active,
+      icon: FileCheck,
       bgColor: 'bg-emerald-50',
       textColor: 'text-emerald-600',
-      trend: '+5%',
+      trend: formatTrend(trends?.active),
+      trendStyle: getTrendStyle(trends?.active),
+      TrendIcon: getTrendIcon(trends?.active),
       onClick: () => navigate('arsip', 'active')
     },
-    { 
-      title: 'Arsip Inaktif', 
-      value: stats.inactive, 
-      icon: ArchiveRestore, 
+    {
+      title: 'Arsip Inaktif',
+      value: stats.inactive,
+      icon: ArchiveRestore,
       bgColor: 'bg-amber-50',
       textColor: 'text-amber-600',
-      trend: '+2%',
+      trend: formatTrend(trends?.inactive),
+      trendStyle: getTrendStyle(trends?.inactive),
+      TrendIcon: getTrendIcon(trends?.inactive),
       onClick: () => navigate('semua', 'inactive')
     },
   ];
@@ -124,14 +149,16 @@ export default function Dashboard({
               <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.textColor}`}>
                 <stat.icon size={24} />
               </div>
-              <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                <TrendingUp size={12} className="mr-1" />
-                {stat.trend}
-              </span>
+              <Tooltip content="vs bulan lalu">
+                <span className={`flex items-center text-xs font-medium px-2 py-1 rounded-full ${stat.trendStyle}`}>
+                  <stat.TrendIcon size={12} className="mr-1" />
+                  {stat.trend}
+                </span>
+              </Tooltip>
             </div>
             <h3 className="text-3xl font-display font-bold text-neutral-900 mb-1">{stat.value}</h3>
             <p className="text-sm text-neutral-500">{stat.title}</p>
-            
+
             {/* Decorative background blob */}
             <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 ${stat.bgColor.replace('bg-', 'bg-opacity-50 ')} blur-2xl group-hover:scale-150 transition-transform duration-500`} />
           </motion.div>
@@ -141,7 +168,7 @@ export default function Dashboard({
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Chart */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
@@ -151,7 +178,7 @@ export default function Dashboard({
             <h3 className="text-lg font-bold text-neutral-900">
               {chartFilter === 'Tahun Ini' ? 'Volume Arsip Bulanan (Tahun Ini)' : 'Volume Arsip per Tahun'}
             </h3>
-            <select 
+            <select
               value={chartFilter}
               onChange={(e) => setChartFilter(e.target.value)}
               className="text-sm border-none bg-neutral-50 rounded-lg px-3 py-1 text-neutral-600 focus:ring-0 cursor-pointer hover:bg-neutral-100 transition-colors"
@@ -165,38 +192,38 @@ export default function Dashboard({
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAktif" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorInaktif" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#cbd5e1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#cbd5e1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                <Tooltip 
+                <RechartsTooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                   cursor={{ stroke: '#e2e8f0', strokeWidth: 2 }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                <Area 
-                  type="monotone" 
-                  dataKey="Aktif" 
-                  stroke="#6366f1" 
+                <Area
+                  type="monotone"
+                  dataKey="Aktif"
+                  stroke="#6366f1"
                   strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorAktif)" 
+                  fillOpacity={1}
+                  fill="url(#colorAktif)"
                   animationDuration={1500}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="Inaktif" 
-                  stroke="#94a3b8" 
+                <Area
+                  type="monotone"
+                  dataKey="Inaktif"
+                  stroke="#94a3b8"
                   strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorInaktif)" 
+                  fillOpacity={1}
+                  fill="url(#colorInaktif)"
                   animationDuration={1500}
                 />
               </AreaChart>
@@ -205,7 +232,7 @@ export default function Dashboard({
         </motion.div>
 
         {/* Recent Archives */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4 }}
@@ -217,9 +244,9 @@ export default function Dashboard({
           </h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
             {recentArchives.map((item, i) => (
-              <div 
-                key={item.id} 
-                className="flex gap-3 group cursor-pointer p-2 rounded-xl hover:bg-neutral-50 transition-all" 
+              <div
+                key={item.id}
+                className="flex gap-3 group cursor-pointer p-2 rounded-xl hover:bg-neutral-50 transition-all"
                 onClick={() => setSelectedArsipDetail(item)}
               >
                 <div className="mt-1">
@@ -228,9 +255,11 @@ export default function Dashboard({
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-neutral-900 line-clamp-1 group-hover:text-primary-600 transition-colors">
-                    {item.perihal}
-                  </p>
+                  <Tooltip content={item.perihal} className="min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 line-clamp-1 group-hover:text-primary-600 transition-colors">
+                      {item.perihal}
+                    </p>
+                  </Tooltip>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
                       {item.nomorArsip}
@@ -249,7 +278,7 @@ export default function Dashboard({
               </div>
             )}
           </div>
-          <button 
+          <button
             onClick={() => navigate('arsip')}
             className="w-full mt-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
