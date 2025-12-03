@@ -199,7 +199,9 @@ export default function App() {
             }
 
             // Status check
-            const isActive = !retensiDate || today <= retensiDate;
+            const klasifikasi = klasifikasiList.find(k => k.kode === arsip.kodeKlasifikasi);
+            const isPermanent = klasifikasi && Number(klasifikasi.retensiAktif) === 0 && Number(klasifikasi.retensiInaktif) === 0;
+            const isActive = isPermanent || !retensiDate || today <= retensiDate;
 
             if (!isActive) {
                 inactive.push(arsip);

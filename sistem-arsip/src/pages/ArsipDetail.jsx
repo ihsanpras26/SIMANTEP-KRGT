@@ -21,7 +21,15 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
     if (!arsip) return null;
 
     const klasifikasi = klasifikasiList.find(k => k.kode === arsip.kodeKlasifikasi);
-    const isActive = new Date(arsip.tanggalRetensi) > new Date();
+    
+    // Check if classification has 0/0 retention (Permanent/Indefinite)
+    const isPermanent = klasifikasi && 
+        Number(klasifikasi.retensiAktif) === 0 && 
+        Number(klasifikasi.retensiInaktif) === 0;
+
+    // Active if: Permanent OR No retention date OR Retention date is in future
+    const isActive = isPermanent || !arsip.tanggalRetensi || new Date(arsip.tanggalRetensi) > new Date();
+    
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
     const formatDate = (dateString) => {
@@ -258,7 +266,7 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
                                 "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide",
                                 isActive ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                             )}>
-                                {isActive ? 'Active' : 'Expired'}
+                                {isActive ? 'Aktif' : 'Inaktif'}
                             </span>
                         </div>
                         

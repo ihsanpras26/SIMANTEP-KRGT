@@ -409,7 +409,10 @@ export default function ArsipList({
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {currentData.map((item) => {
-                  const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
+                  const klasifikasi = klasifikasiList.find(k => k.kode === item.kodeKlasifikasi);
+                  const isPermanent = klasifikasi && Number(klasifikasi.retensiAktif) === 0 && Number(klasifikasi.retensiInaktif) === 0;
+                  const isActive = isPermanent || !item.tanggalRetensi || new Date(item.tanggalRetensi) > new Date();
+                  const isInactive = !isActive;
                   return (
                     <tr
                       key={item.id}
@@ -464,7 +467,10 @@ export default function ArsipList({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {currentData.map((item) => {
-            const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
+            const klasifikasi = klasifikasiList.find(k => k.kode === item.kodeKlasifikasi);
+            const isPermanent = klasifikasi && Number(klasifikasi.retensiAktif) === 0 && Number(klasifikasi.retensiInaktif) === 0;
+            const isActive = isPermanent || !item.tanggalRetensi || new Date(item.tanggalRetensi) > new Date();
+            const isInactive = !isActive;
             return (
               <div key={item.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-5 hover:shadow-md transition-all group relative flex flex-col h-full">
                 <div className="flex justify-between items-start mb-3">
