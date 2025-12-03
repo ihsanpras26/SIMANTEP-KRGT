@@ -16,6 +16,7 @@ export default function Layout({
   setSelectedArsipDetail
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   // Keyboard shortcut removed as per request
@@ -38,9 +39,14 @@ export default function Layout({
       {/* Sidebar */}
       <Sidebar 
         collapsed={sidebarCollapsed}
+        mobileOpen={mobileMenuOpen}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onMobileClose={() => setMobileMenuOpen(false)}
         currentView={currentView}
-        onNavigate={onNavigate}
+        onNavigate={(view) => {
+          onNavigate(view);
+          setMobileMenuOpen(false);
+        }}
         onShowInfo={() => {}} // Handle info modal trigger
       />
 
@@ -48,13 +54,14 @@ export default function Layout({
       <div 
         className={cn(
           "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-          sidebarCollapsed ? "ml-[72px]" : "ml-72"
+          "ml-0", // Mobile: no margin
+          sidebarCollapsed ? "md:ml-[72px]" : "md:ml-72" // Desktop: responsive margin
         )}
       >
         {/* Header */}
         <Header 
           title={title}
-          onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           isSidebarCollapsed={sidebarCollapsed}
           user={user}
           onLogout={onLogout}
@@ -62,8 +69,8 @@ export default function Layout({
         />
 
         {/* Page Content */}
-        <main className="flex-1 pt-24 px-8 pb-8 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto animate-fade-in">
+        <main className="flex-1 pt-24 px-4 md:px-8 pb-8 overflow-x-hidden">
+          <div className="max-w-screen-2xl mx-auto animate-fade-in">
             {children}
           </div>
         </main>

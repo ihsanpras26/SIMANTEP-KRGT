@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
   Filter,
-  Download,
+  FileUp,
   Trash2,
   Edit,
   Eye,
@@ -21,6 +21,7 @@ import { id } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { cn } from '../utils/cn';
 import Tooltip from './Tooltip';
+import SearchableSelect from './SearchableSelect';
 
 export default function ArsipList({
   title,
@@ -43,6 +44,8 @@ export default function ArsipList({
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
   const [selectedItems, setSelectedItems] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [filterOverflow, setFilterOverflow] = useState('hidden');
+  const filterButtonRef = useRef(null);
 
   // Sync filterStatus with initialFilter
   useEffect(() => {
@@ -52,7 +55,12 @@ export default function ArsipList({
   // Click outside to close filters
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showFilters && !event.target.closest('.filter-container')) {
+      if (
+        showFilters && 
+        !event.target.closest('.filter-container') && 
+        filterButtonRef.current && 
+        !filterButtonRef.current.contains(event.target)
+      ) {
         setShowFilters(false);
       }
     };
@@ -121,7 +129,7 @@ export default function ArsipList({
   // Helper to get classification description
   const getKlasifikasiDeskripsi = (kode) => {
     const klasifikasi = klasifikasiList.find(k => k.kode === kode);
-    return klasifikasi ? klasifikasi.nama : 'Tidak ada deskripsi';
+    return klasifikasi ? klasifikasi.deskripsi : 'Tidak ada deskripsi';
   };
 
   return (
@@ -179,13 +187,17 @@ export default function ArsipList({
             </div>
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-colors shadow-sm"
             >
-              <Download size={18} />
+              <FileUp size={18} />
               <span className="hidden sm:inline font-medium">Export</span>
             </button>
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              ref={filterButtonRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowFilters(!showFilters);
+              }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm",
                 showFilters
@@ -198,40 +210,93 @@ export default function ArsipList({
             </button>
           </div>
         </div>
-
-        {/* Quick Status Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          {[
-            { id: 'all', label: 'Semua Arsip' },
-            { id: 'active', label: 'Aktif' },
-            { id: 'inactive', label: 'Inaktif' }
-          ].map((status) => (
-            <button
-              key={status.id}
-              onClick={() => setFilterStatus(status.id)}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-all border",
-                filterStatus === status.id
-                  ? "bg-neutral-900 text-white border-neutral-900 shadow-md"
-                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
-              )}
-            >
-              {status.label}
-            </button>
-          ))}
-        </div>
       </div>
 
+      {/* Active Filters Chips */}
+      {(filterStatus !== 'all' || filterKlasifikasi !== 'all' || filterDate) && (
+        <div className="flex flex-wrap items-center gap-2 -mt-2">
+          <span className="text-xs font-medium text-neutral-500 mr-1">Filter Aktif:</span>
+          
+          {filterStatus !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-medium border border-neutral-200">
+              Status: {filterStatus === 'active' ? 'Aktif' : 'Inaktif'}
+              <button 
+                onClick={() => setFilterStatus('all')}
+                className="p-0.5 hover:bg-neutral-200 rounded-full transition-colors ml-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+
+          {filterKlasifikasi !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-medium border border-neutral-200">
+              Klasifikasi: {klasifikasiList.find(k => k.kode === filterKlasifikasi)?.kode || filterKlasifikasi}
+              <button 
+                onClick={() => setFilterKlasifikasi('all')}
+                className="p-0.5 hover:bg-neutral-200 rounded-full transition-colors ml-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+
+          {filterDate && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-medium border border-neutral-200">
+              Tanggal: {format(new Date(filterDate), 'dd MMM yyyy', { locale: id })}
+              <button 
+                onClick={() => setFilterDate('')}
+                className="p-0.5 hover:bg-neutral-200 rounded-full transition-colors ml-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+
+          <button 
+            onClick={() => {
+              setFilterStatus('all');
+              setFilterKlasifikasi('all');
+              setFilterDate('');
+            }}
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline ml-2"
+          >
+            Reset Semua
+          </button>
+        </div>
+      )}
+
       {/* Advanced Filters */}
-      <AnimatePresence>
+      <AnimatePresence
+        onExitComplete={() => setFilterOverflow('hidden')}
+      >
         {showFilters && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden filter-container"
+            onAnimationComplete={() => setFilterOverflow('visible')}
+            className={cn("filter-container", filterOverflow === 'visible' ? 'overflow-visible' : 'overflow-hidden')}
           >
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-neutral-200 grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-neutral-200 grid grid-cols-1 sm:grid-cols-4 gap-5">
+              <div>
+                <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Status Arsip</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Inaktif</option>
+                </select>
+              </div>
               <div>
                 <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Tanggal Surat</label>
                 <input
@@ -242,17 +307,16 @@ export default function ArsipList({
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Klasifikasi</label>
-                <select
+                <SearchableSelect
+                  label="Kode Klasifikasi"
+                  placeholder="Cari kode atau deskripsi..."
+                  options={klasifikasiList.map(k => ({
+                    value: k.kode,
+                    label: `${k.kode} - ${k.deskripsi}`
+                  }))}
                   value={filterKlasifikasi}
-                  onChange={(e) => setFilterKlasifikasi(e.target.value)}
-                  className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                >
-                  <option value="all">Semua Klasifikasi</option>
-                  {klasifikasiList.map(k => (
-                    <option key={k.id} value={k.kode}>{k.kode} - {k.nama}</option>
-                  ))}
-                </select>
+                  onChange={setFilterKlasifikasi}
+                />
               </div>
               <div>
                 <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Urutkan</label>
@@ -316,7 +380,7 @@ export default function ArsipList({
                         <div className="text-xs text-neutral-500 truncate max-w-[200px]">{item.deskripsi}</div>
                       </td>
                       <td className="p-4 text-sm text-neutral-600">
-                        {format(new Date(item.tanggalSurat), 'dd MMM yyyy', { locale: id })}
+                        {format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}
                       </td>
                       <td className="p-4">
                         <Tooltip content={getKlasifikasiDeskripsi(item.kodeKlasifikasi)}>
@@ -329,12 +393,12 @@ export default function ArsipList({
                         <span className={cn(
                           "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
                           isInactive
-                            ? "bg-neutral-50 text-neutral-600 border-neutral-200"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
                             : "bg-emerald-50 text-emerald-700 border-emerald-200"
                         )}>
                           <span className={cn(
                             "w-1.5 h-1.5 rounded-full",
-                            isInactive ? "bg-neutral-400" : "bg-emerald-500"
+                            isInactive ? "bg-amber-500" : "bg-emerald-500"
                           )} />
                           {isInactive ? 'Inaktif' : 'Aktif'}
                         </span>
@@ -356,7 +420,7 @@ export default function ArsipList({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {filteredData.map((item) => {
             const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
             return (
@@ -395,18 +459,18 @@ export default function ArsipList({
                 <div className="mt-auto pt-4 border-t border-neutral-50 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs text-neutral-500">
                     <Calendar size={14} />
-                    <span>{format(new Date(item.tanggalSurat), 'dd MMM yyyy', { locale: id })}</span>
+                    <span>{format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}</span>
                   </div>
 
                   <span className={cn(
                     "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border",
                     isInactive
-                      ? "bg-neutral-50 text-neutral-600 border-neutral-200"
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
                       : "bg-emerald-50 text-emerald-700 border-emerald-200"
                   )}>
                     <span className={cn(
                       "w-1 h-1 rounded-full",
-                      isInactive ? "bg-neutral-400" : "bg-emerald-500"
+                      isInactive ? "bg-amber-500" : "bg-emerald-500"
                     )} />
                     {isInactive ? 'Inaktif' : 'Aktif'}
                   </span>

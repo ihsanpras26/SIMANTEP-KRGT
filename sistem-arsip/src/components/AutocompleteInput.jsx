@@ -9,7 +9,9 @@ const AutocompleteInput = ({
   onChange, 
   placeholder, 
   className,
-  icon: Icon
+  icon: Icon,
+  onSelect,
+  onKeyDown
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
@@ -19,6 +21,7 @@ const AutocompleteInput = ({
   useEffect(() => {
     if (value) {
       const filtered = suggestions.filter(item => 
+        typeof item === 'string' &&
         item.toLowerCase().includes(value.toLowerCase()) && 
         item.toLowerCase() !== value.toLowerCase()
       ).slice(0, 5);
@@ -55,9 +58,13 @@ const AutocompleteInput = ({
         );
         break;
       case 'Enter':
-        e.preventDefault();
         if (highlightedIndex >= 0) {
-          onChange(filteredSuggestions[highlightedIndex]);
+          e.preventDefault();
+          if (onSelect) {
+            onSelect(filteredSuggestions[highlightedIndex]);
+          } else {
+            onChange(filteredSuggestions[highlightedIndex]);
+          }
           setShowSuggestions(false);
         }
         break;
@@ -78,10 +85,13 @@ const AutocompleteInput = ({
             setShowSuggestions(true);
           }}
           onFocus={() => setShowSuggestions(true)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => {
+            handleKeyDown(e);
+            if (onKeyDown) onKeyDown(e);
+          }}
           placeholder={placeholder}
           className={cn(
-            "w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none",
+            "w-full px-4 py-2.5 h-[42px] bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none",
             className
           )}
         />
@@ -102,7 +112,11 @@ const AutocompleteInput = ({
               <button
                 key={index}
                 onClick={() => {
-                  onChange(suggestion);
+                  if (onSelect) {
+                    onSelect(suggestion);
+                  } else {
+                    onChange(suggestion);
+                  }
                   setShowSuggestions(false);
                 }}
                 className={cn(

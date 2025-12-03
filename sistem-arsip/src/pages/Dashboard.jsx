@@ -135,7 +135,7 @@ export default function Dashboard({
   return (
     <div className="space-y-8">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.title}
@@ -166,13 +166,13 @@ export default function Dashboard({
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Main Chart */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-card border border-neutral-100"
+          className="xl:col-span-2 bg-white p-6 rounded-2xl shadow-card border border-neutral-100"
         >
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-neutral-900">

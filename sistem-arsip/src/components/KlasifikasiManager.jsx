@@ -1,253 +1,255 @@
 import React, { useState } from 'react';
-import { Plus, Search, FolderKanban, Edit, Trash2, ChevronRight } from 'lucide-react';
+import { Plus, Search, FolderKanban, Edit, Trash2, ChevronRight, ChevronDown, FolderOpen, FileText } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../utils/cn';
 
 const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, setEditingKlasifikasi, showNotification, setDeleteConfirmModal, openModal }) => {
+    const [searchKode, setSearchKode] = useState('');
+    const [expandedCategories, setExpandedCategories] = useState({});
+
     const handleEdit = (klasifikasi) => {
         setEditingKlasifikasi(klasifikasi);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        openModal && openModal();
     };
 
     const handleDelete = (id, kode) => {
         setDeleteConfirmModal({ 
             show: true, 
             id, 
-            message: `Anda yakin ingin menghapus kode klasifikasi "${kode}"? Tindakan ini tidak dapat diurungkan dan dapat mempengaruhi arsip yang ada.` 
+            message: `Anda yakin ingin menghapus kode klasifikasi "${kode}"? Tindakan ini tidak dapat diurungkan.` 
         });
     };
-    const [searchKode, setSearchKode] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState(null);
     
-    // Filter klasifikasi berdasarkan pencarian
+    const toggleCategory = (code) => {
+        setExpandedCategories(prev => ({
+            ...prev,
+            [code]: !prev[code]
+        }));
+    };
+
+    // Filter & Group Logic
     const filteredKlasifikasi = klasifikasiList.filter(k => 
         k.kode.toLowerCase().includes(searchKode.toLowerCase()) ||
         k.deskripsi.toLowerCase().includes(searchKode.toLowerCase())
     );
     
-    // Group by main category
     const groupedKlasifikasi = filteredKlasifikasi.reduce((acc, k) => {
         const mainCode = k.kode.split('.')[0];
-        if (!acc[mainCode]) {
-            acc[mainCode] = [];
-        }
+        if (!acc[mainCode]) acc[mainCode] = [];
         acc[mainCode].push(k);
         return acc;
     }, {});
-    // Pastikan setiap main code muncul sebagai grup walaupun entri 3 digit tidak ada
+
+    // Ensure all main codes exist even if empty (for structure)
     const allMainCodes = Array.from(new Set(filteredKlasifikasi.map(k => k.kode.split('.')[0])));
     allMainCodes.forEach(code => {
-        if (!groupedKlasifikasi[code]) {
-            groupedKlasifikasi[code] = [];
-        }
+        if (!groupedKlasifikasi[code]) groupedKlasifikasi[code] = [];
     });
 
     return (
         <div className="space-y-6">
-            {/* Header dengan Search */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Kode Klasifikasi</h2>
-                        <p className="text-sm text-gray-600 mt-1">Kelola sistem klasifikasi arsip dengan hierarki yang terstruktur</p>
-                </div>
-                    <button 
-                        onClick={() => { 
-                            setEditingKlasifikasi(null); 
-                            openModal && openModal(); 
-                        }} 
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                        <Plus size={18} />
-                        Tambah Kode
-                    </button>
-                </div>
-                
-                {/* Search Bar */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            {/* Header Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative group flex-1 w-full sm:w-auto max-w-md">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="text-neutral-400 group-focus-within:text-primary-500 transition-colors" size={20} />
+                    </div>
                     <input
                         type="text"
-                        placeholder="Cari kode atau deskripsi klasifikasi..."
+                        placeholder="Cari kode atau deskripsi..."
                         value={searchKode}
                         onChange={(e) => setSearchKode(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="block w-full pl-10 pr-10 py-3 bg-white border border-neutral-200 rounded-xl text-sm shadow-sm placeholder-neutral-400
+                        focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                     />
+                    {searchKode && (
+                        <button
+                            onClick={() => setSearchKode('')}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600"
+                        >
+                            <Search size={16} className="opacity-0" /> {/* Spacer */}
+                            <span className="sr-only">Clear</span>
+                            <svg className="h-5 w-5 absolute right-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
+
+                <button 
+                    onClick={() => { 
+                        setEditingKlasifikasi(null); 
+                        openModal && openModal(); 
+                    }} 
+                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all"
+                >
+                    <Plus size={20} />
+                    <span>Tambah Kode</span>
+                </button>
             </div>
             
-            {/* Cards Layout */}
+            {/* Classification List */}
             <div className="space-y-4">
                 {Object.entries(groupedKlasifikasi)
-                    .sort(([a], [b]) => {
-                        // Prioritaskan kode "000" di atas
-                        if (a === '000') return -1;
-                        if (b === '000') return 1;
-                        // Sorting normal untuk yang lain
-                        return a.localeCompare(b, undefined, { numeric: true });
-                    })
+                    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
                     .map(([mainCode, items]) => {
-                    const mainItem = items.find(i => i.kode === mainCode);
-                    const subItems = items.filter(i => i.kode !== mainCode).sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
-                    const isExpanded = selectedCategory === mainCode;
-                                
-                                return (
-                        <div key={mainCode} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                            {/* Main Category Header */}
-                            <div 
-                                className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 cursor-pointer hover:from-blue-100 hover:to-indigo-100 transition-colors"
-                                onClick={() => setSelectedCategory(isExpanded ? null : mainCode)}
-                            >
-                                <div className="flex items-center justify-between">
+                        const mainItem = items.find(i => i.kode === mainCode);
+                        const subItems = items.filter(i => i.kode !== mainCode).sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
+                        const isExpanded = expandedCategories[mainCode];
+                        
+                        return (
+                            <div key={mainCode} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                                {/* Main Category Header */}
+                                <div 
+                                    className={cn(
+                                        "p-5 cursor-pointer transition-colors flex items-center justify-between group",
+                                        isExpanded ? "bg-neutral-50" : "bg-white hover:bg-neutral-50"
+                                    )}
+                                    onClick={() => toggleCategory(mainCode)}
+                                >
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                        <div className={cn(
+                                            "w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform duration-300 group-hover:scale-110",
+                                            mainCode.length === 3 ? "bg-neutral-800" : "bg-primary-500"
+                                        )}>
                                             <FolderKanban size={24} />
                                         </div>
                                         <div>
-                                            <div className="font-bold text-lg text-gray-900">{mainCode}</div>
-                                            {mainItem ? (
-                                                <div className="text-gray-600">{mainItem.deskripsi}</div>
-                                            ) : mainCode.length === 3 && subItems.length > 0 ? (
-                                                <div className="text-gray-500">Kategori Utama</div>
-                                            ) : null}
-                                            <div className="flex items-center gap-4 mt-2">
-                                                {/* Untuk kode 3 digit: hanya tampilkan jumlah sub-kode tanpa retensi */}
-                                                {mainCode.length === 3 ? (
-                                                    <span className="text-sm bg-white px-3 py-1 rounded-full text-blue-600 font-medium border border-blue-200">
-                                                        📁 {subItems.length} sub-kode
-                                                    </span>
-                                                ) : mainItem && mainCode.length > 3 ? (
-                                                    /* Untuk kode 4+ digit yang ada datanya: tampilkan retensi */
-                                                    <>
-                                                        <span className="text-sm bg-white px-2 py-1 rounded text-emerald-700 font-medium border border-emerald-200">
-                                                            Aktif: {mainItem.retensiAktif} tahun
-                                                        </span>
-                                                        <span className="text-sm bg-white px-2 py-1 rounded text-amber-700 font-medium border border-amber-200">
-                                                            Inaktif: {mainItem.retensiInaktif} tahun
-                                                        </span>
-                                                        {subItems.length > 0 && (
-                                                            <span className="text-sm bg-white px-3 py-1 rounded-full text-blue-600 font-medium border border-blue-200">
-                                                                📁 {subItems.length} sub-kode
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                ) : subItems.length > 0 ? (
-                                                    <span className="text-sm bg-white px-3 py-1 rounded-full text-blue-600 font-medium border border-blue-200">
-                                                        📁 {subItems.length} sub-kode
-                                                    </span>
-                                                ) : null}
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-display font-bold text-lg text-neutral-900">{mainCode}</span>
+
                                             </div>
+                                            <div className="text-neutral-600 text-sm mt-0.5">
+                                                {mainItem ? mainItem.deskripsi : (subItems.length > 0 ? 'Kategori Induk' : 'Tidak ada deskripsi')}
+                                            </div>
+                                            
+                                            {/* Metadata Badges */}
+                                            {mainItem && mainCode.length > 3 && (
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-medium">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        Aktif: {mainItem.retensiAktif} thn
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-xs font-medium">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                        Inaktif: {mainItem.retensiInaktif} thn
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
+
                                     <div className="flex items-center gap-3">
-                                        {/* Actions hanya untuk kode yang memiliki data (bukan pembatas 3 digit) */}
                                         {mainItem && mainCode.length > 3 && (
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button 
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation();
-                                                        handleEdit(mainItem); 
-                                                        openModal && openModal(); 
-                                                    }} 
-                                                    className="p-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                                    title="Edit Kategori"
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(mainItem); }}
+                                                    className="p-2 text-neutral-400 hover:text-primary-600 hover:bg-white rounded-lg transition-colors"
+                                                    title="Edit"
                                                 >
-                                                    <Edit size={16} />
+                                                    <Edit size={18} />
                                                 </button>
                                                 <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(mainItem.id, mainItem.kode);
-                                                    }} 
-                                                    className="p-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                                                    title="Hapus Kategori"
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(mainItem.id, mainItem.kode); }}
+                                                    className="p-2 text-neutral-400 hover:text-danger-600 hover:bg-white rounded-lg transition-colors"
+                                                    title="Hapus"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         )}
                                         {subItems.length > 0 && (
-                                            <ChevronRight 
-                                                className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
-                                                size={20} 
-                                            />
+                                            <div className={cn(
+                                                "w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300",
+                                                isExpanded ? "bg-neutral-200 text-neutral-700 rotate-180" : "bg-neutral-100 text-neutral-400 group-hover:bg-white group-hover:shadow-sm"
+                                            )}>
+                                                <ChevronDown size={20} />
+                                            </div>
                                         )}
                                     </div>
                                 </div>
+                                
+                                {/* Sub Categories */}
+                                <AnimatePresence>
+                                    {isExpanded && subItems.length > 0 && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="border-t border-neutral-100 bg-neutral-50/50"
+                                        >
+                                            <div className="p-2 space-y-1">
+                                                {subItems.map(item => {
+                                                    const level = item.kode.split('.').length;
+                                                    const isSubCategory = level === 2;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={item.id} 
+                                                            onClick={() => handleEdit(item)}
+                                                            className={cn(
+                                                                "group flex items-center justify-between p-3 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-neutral-100 transition-all cursor-pointer",
+                                                                !isSubCategory && "ml-8"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={cn(
+                                                                    "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold",
+                                                                    isSubCategory ? "bg-blue-50 text-blue-600" : "bg-indigo-50 text-indigo-600"
+                                                                )}>
+                                                                    {isSubCategory ? <FolderOpen size={16} /> : <FileText size={16} />}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-mono font-bold text-neutral-900 text-sm">{item.kode}</span>
+                                                                        <span className="text-neutral-600 text-sm line-clamp-1">{item.deskripsi}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                        <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
+                                                                            Aktif: {item.retensiAktif} thn
+                                                                        </span>
+                                                                        <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
+                                                                            Inaktif: {item.retensiInaktif} thn
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button 
+                                                                    onClick={() => handleEdit(item)}
+                                                                    className="p-1.5 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                                                                >
+                                                                    <Edit size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDelete(item.id, item.kode)}
+                                                                    className="p-1.5 text-neutral-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                            
-                            {/* Sub Categories - Expandable */}
-                            {isExpanded && subItems.length > 0 && (
-                                <div className="border-t border-gray-200 bg-gray-50">
-                                    <div className="p-4 space-y-3">
-                                        {subItems.map(item => {
-                                            const level = item.kode.split('.').length;
-                                            const isSubCategory = level === 2;
-                                            
-                                            return (
-                                                <div 
-                                                    key={item.id} 
-                                                    className={`bg-white p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors ${
-                                                        isSubCategory ? '' : 'ml-6'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                                                isSubCategory 
-                                                                    ? 'bg-green-100 text-green-600' 
-                                                                    : 'bg-orange-100 text-orange-600'
-                                                            }`}>
-                                                                {isSubCategory ? '📂' : '📄'}
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className="font-mono font-bold text-gray-900">{item.kode}</span>
-                                                                    <span className="text-gray-600">{item.deskripsi}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-3 mt-2">
-                                                                    <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-medium">
-                                                                        Aktif: {item.retensiAktif} tahun
-                                                                    </span>
-                                                                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-medium">
-                                                                        Inaktif: {item.retensiInaktif} tahun
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <button 
-                                                                onClick={() => { 
-                                                                    handleEdit(item); 
-                                                                    openModal && openModal(); 
-                                                                }} 
-                                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                title="Edit"
-                                                            >
-                                                                <Edit size={16} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => handleDelete(item.id, item.kode)} 
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Hapus"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                );
-                            })}
-                </div>
-            </div>
-                            )}
-                        </div>
-                    );
-                })}
+                        );
+                    })}
             </div>
             
             {filteredKlasifikasi.length === 0 && (
-                <div className="text-center py-8 text-gray-500 bg-white rounded-xl border border-gray-200">
-                    <FolderKanban size={48} className="mx-auto mb-4 text-gray-300" />
-                    <p>Tidak ada kode klasifikasi yang sesuai dengan pencarian</p>
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-neutral-200 border-dashed">
+                    <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center mb-4">
+                        <Search size={24} className="text-neutral-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-neutral-900">Tidak ada kode klasifikasi</h3>
+                    <p className="text-neutral-500 max-w-sm mt-1">
+                        Coba ubah kata kunci pencarian Anda atau tambahkan kode klasifikasi baru.
+                    </p>
                 </div>
             )}
         </div>
