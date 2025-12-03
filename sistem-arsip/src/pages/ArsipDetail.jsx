@@ -16,19 +16,15 @@ import {
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { cn } from '../utils/cn';
+import { getArsipStatus } from '../utils/statusUtils';
 
 export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
     if (!arsip) return null;
 
     const klasifikasi = klasifikasiList.find(k => k.kode === arsip.kodeKlasifikasi);
     
-    // Check if classification has 0/0 retention (Permanent/Indefinite)
-    const isPermanent = klasifikasi && 
-        Number(klasifikasi.retensiAktif) === 0 && 
-        Number(klasifikasi.retensiInaktif) === 0;
-
-    // Active if: Permanent OR No retention date OR Retention date is in future
-    const isActive = isPermanent || !arsip.tanggalRetensi || new Date(arsip.tanggalRetensi) > new Date();
+    const status = getArsipStatus(arsip, klasifikasiList);
+    const isActive = status === 'Aktif';
     
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 

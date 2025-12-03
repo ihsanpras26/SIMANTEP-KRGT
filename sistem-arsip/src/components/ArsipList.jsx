@@ -23,7 +23,9 @@ import { id } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { cn } from '../utils/cn';
 import Tooltip from './Tooltip';
+import Tooltip from './Tooltip';
 import SearchableSelect from './SearchableSelect';
+import { getArsipStatus } from '../utils/statusUtils';
 
 export default function ArsipList({
   title,
@@ -80,7 +82,8 @@ export default function ArsipList({
         (item.perihal?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (item.nomorSurat?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
-      const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
+      const status = getArsipStatus(item, klasifikasiList);
+      const isInactive = status === 'Inaktif';
       const matchesStatus =
         filterStatus === 'all' ? true :
           filterStatus === 'active' ? !isInactive :
@@ -149,7 +152,7 @@ export default function ArsipList({
       'Perihal': item.perihal,
       'Tanggal Surat': format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id }),
       'Klasifikasi': item.kodeKlasifikasi,
-      'Status': new Date() > new Date(item.tanggalRetensi) ? 'Inaktif' : 'Aktif'
+      'Status': getArsipStatus(item, klasifikasiList)
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -409,10 +412,8 @@ export default function ArsipList({
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {currentData.map((item) => {
-                  const klasifikasi = klasifikasiList.find(k => k.kode === item.kodeKlasifikasi);
-                  const isPermanent = klasifikasi && Number(klasifikasi.retensiAktif) === 0 && Number(klasifikasi.retensiInaktif) === 0;
-                  const isActive = isPermanent || !item.tanggalRetensi || new Date(item.tanggalRetensi) > new Date();
-                  const isInactive = !isActive;
+                  const status = getArsipStatus(item, klasifikasiList);
+                  const isInactive = status === 'Inaktif';
                   return (
                     <tr
                       key={item.id}
@@ -467,10 +468,8 @@ export default function ArsipList({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {currentData.map((item) => {
-            const klasifikasi = klasifikasiList.find(k => k.kode === item.kodeKlasifikasi);
-            const isPermanent = klasifikasi && Number(klasifikasi.retensiAktif) === 0 && Number(klasifikasi.retensiInaktif) === 0;
-            const isActive = isPermanent || !item.tanggalRetensi || new Date(item.tanggalRetensi) > new Date();
-            const isInactive = !isActive;
+            const status = getArsipStatus(item, klasifikasiList);
+            const isInactive = status === 'Inaktif';
             return (
               <div key={item.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-5 hover:shadow-md transition-all group relative flex flex-col h-full">
                 <div className="flex justify-between items-start mb-3">

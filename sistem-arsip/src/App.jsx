@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAppStore from './store/useAppStore';
+import { getArsipStatus } from './utils/statusUtils';
 
 // Layout & Components
 import Layout from './components/Layout';
@@ -199,9 +200,8 @@ export default function App() {
             }
 
             // Status check
-            const klasifikasi = klasifikasiList.find(k => k.kode === arsip.kodeKlasifikasi);
-            const isPermanent = klasifikasi && Number(klasifikasi.retensiAktif) === 0 && Number(klasifikasi.retensiInaktif) === 0;
-            const isActive = isPermanent || !retensiDate || today <= retensiDate;
+            const status = getArsipStatus(arsip, klasifikasiList);
+            const isActive = status === 'Aktif';
 
             if (!isActive) {
                 inactive.push(arsip);
