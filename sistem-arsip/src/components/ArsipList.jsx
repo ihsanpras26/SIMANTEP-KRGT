@@ -13,7 +13,9 @@ import {
   ChevronDown,
   ArrowUpDown,
   Grid,
-  List as ListIcon
+  List as ListIcon,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -45,6 +47,8 @@ export default function ArsipList({
   const [selectedItems, setSelectedItems] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [filterOverflow, setFilterOverflow] = useState('hidden');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const filterButtonRef = useRef(null);
 
   // Sync filterStatus with initialFilter
@@ -99,6 +103,44 @@ export default function ArsipList({
         : (aValue < bValue ? 1 : -1);
     });
   }, [arsipList, searchTerm, filterStatus, filterKlasifikasi, filterDate, sortBy, sortOrder]);
+
+  // Pagination Logic
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, filterKlasifikasi, filterDate]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filteredData.slice(startIndex, endIndex);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 3; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 2; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        pages.push(currentPage);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   // Export Logic
   const handleExport = () => {
@@ -366,7 +408,7 @@ export default function ArsipList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {filteredData.map((item) => {
+                {currentData.map((item) => {
                   const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
                   return (
                     <tr
@@ -421,7 +463,7 @@ export default function ArsipList({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-          {filteredData.map((item) => {
+          {currentData.map((item) => {
             const isInactive = item.tanggalRetensi && new Date() > new Date(item.tanggalRetensi);
             return (
               <div key={item.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-5 hover:shadow-md transition-all group relative flex flex-col h-full">
@@ -478,6 +520,68 @@ export default function ArsipList({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Footer */}
+      {filteredData.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-neutral-200">
+          <div className="flex items-center gap-4 text-sm text-neutral-500">
+            <span>
+              Menampilkan <span className="font-medium text-neutral-900">{startIndex + 1}</span> sampai <span className="font-medium text-neutral-900">{Math.min(endIndex, filteredData.length)}</span> dari <span className="font-medium text-neutral-900">{filteredData.length}</span> data
+            </span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-neutral-200 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
+            >
+              <option value={10}>10 per halaman</option>
+              <option value={25}>25 per halaman</option>
+              <option value={50}>50 per halaman</option>
+              <option value={100}>100 per halaman</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((page, index) => (
+                <button
+                  key={index}
+                  onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                  disabled={page === '...'}
+                  className={cn(
+                    "w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-all",
+                    page === currentPage
+                      ? "bg-primary-600 text-white shadow-sm shadow-primary-600/20"
+                      : page === '...'
+                        ? "text-neutral-400 cursor-default"
+                        : "text-neutral-600 hover:bg-neutral-50 border border-transparent hover:border-neutral-200"
+                  )}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
       )}
     </div>
