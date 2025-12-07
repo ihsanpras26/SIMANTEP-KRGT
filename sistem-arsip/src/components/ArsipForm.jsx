@@ -6,21 +6,26 @@ import {
   Link as LinkIcon,
   FileText,
   Hash,
-  Calendar
+  Calendar,
+  Tag,
+  Plus,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import AutocompleteInput from './AutocompleteInput';
 import SearchableSelect from './SearchableSelect';
 import { cn } from '../utils/cn';
+import LabelBadge from './LabelBadge';
 
-export default function ArsipForm({ 
-  supabase, 
-  arsipToEdit, 
-  onFinish, 
+export default function ArsipForm({
+  supabase,
+  arsipToEdit,
+  onFinish,
   showNotification,
   arsipList,
-  klasifikasiList
+  klasifikasiList,
+  labels = [] // New prop
 }) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -33,8 +38,14 @@ export default function ArsipForm({
   });
   const [tujuanList, setTujuanList] = useState([]);
   const [tujuanInput, setTujuanInput] = useState('');
+  const [selectedLabelIds, setSelectedLabelIds] = useState([]); // Array of IDs
+  const [showLabelDropdown, setShowLabelDropdown] = useState(false);
+  const [labelSearch, setLabelSearch] = useState('');
+
   const [errors, setErrors] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const labelDropdownRef = useRef(null);
 
   // Initialize form if editing
   useEffect(() => {
@@ -50,8 +61,24 @@ export default function ArsipForm({
       if (arsipToEdit.tujuan) {
         setTujuanList(arsipToEdit.tujuan.split('; ').filter(Boolean));
       }
+      // Initialize labels
+      if (arsipToEdit.arsip_labels) {
+        const ids = arsipToEdit.arsip_labels.map(al => al.labels?.id).filter(Boolean);
+        setSelectedLabelIds(ids);
+      }
     }
   }, [arsipToEdit]);
+
+  // Click outside to close label dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (labelDropdownRef.current && !labelDropdownRef.current.contains(event.target)) {
+        setShowLabelDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Validation
   const validate = () => {
@@ -62,7 +89,7 @@ export default function ArsipForm({
     if (!formData.tanggalSurat) newErrors.tanggalSurat = 'Tanggal surat wajib diisi';
     if (!formData.pengirim) newErrors.pengirim = 'Pengirim wajib diisi';
     if (tujuanList.length === 0) newErrors.tujuan = 'Tujuan surat wajib diisi';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -89,20 +116,44 @@ export default function ArsipForm({
         updated_at: new Date().toISOString()
       };
 
+      let arsipId;
+
       if (arsipToEdit) {
+        arsipId = arsipToEdit.id;
         const { error } = await supabase
           .from('arsip')
           .update(payload)
-          .eq('id', arsipToEdit.id);
+          .eq('id', arsipId);
         if (error) throw error;
-        toast.success('Arsip berhasil diperbarui');
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('arsip')
-          .insert([{ ...payload, created_at: new Date().toISOString() }]);
+          .insert([{ ...payload, created_at: new Date().toISOString() }])
+          .select()
+          .single();
         if (error) throw error;
-        toast.success('Arsip baru berhasil ditambahkan');
+        arsipId = data.id;
       }
+
+      // Handle Labels
+      if (arsipId) {
+        // First delete existing links (simple strategy)
+        if (arsipToEdit) {
+          await supabase.from('arsip_labels').delete().eq('arsip_id', arsipId);
+        }
+
+        // Insert new links
+        if (selectedLabelIds.length > 0) {
+          const labelInserts = selectedLabelIds.map(labelId => ({
+            arsip_id: arsipId,
+            label_id: labelId
+          }));
+          const { error: labelError } = await supabase.from('arsip_labels').insert(labelInserts);
+          if (labelError) throw labelError;
+        }
+      }
+
+      toast.success(arsipToEdit ? 'Arsip berhasil diperbarui' : 'Arsip baru berhasil ditambahkan');
       onFinish();
     } catch (error) {
       console.error('Error saving arsip:', error);
@@ -134,18 +185,31 @@ export default function ArsipForm({
     }
   };
 
+  // Label Handlers
+  const toggleLabel = (id) => {
+    if (selectedLabelIds.includes(id)) {
+      setSelectedLabelIds(prev => prev.filter(lId => lId !== id));
+    } else {
+      setSelectedLabelIds(prev => [...prev, id]);
+      setShowLabelDropdown(false);
+      setLabelSearch('');
+    }
+  };
+
+  const filteredLabels = labels.filter(l =>
+    l.name.toLowerCase().includes(labelSearch.toLowerCase()) &&
+    !selectedLabelIds.includes(l.id)
+  );
+
   // Autocomplete Data Sources
   const nomorSuratSuggestions = [...new Set(arsipList.map(a => a.nomorSurat))];
   const perihalSuggestions = [...new Set(arsipList.map(a => a.perihal))];
   const pengirimSuggestions = [...new Set(arsipList.map(a => a.pengirim).filter(Boolean))];
-  // Collect all individual recipients for suggestions
   const allTujuan = arsipList.flatMap(a => a.tujuan ? a.tujuan.split('; ') : []).filter(Boolean);
   const tujuanSuggestions = [...new Set(allTujuan)];
-  const klasifikasiSuggestions = klasifikasiList.map(k => `${k.kode} - ${k.nama}`);
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header Actions (Close Button) */}
       <form onSubmit={handleSubmit} className="bg-white p-4 md:p-8 rounded-3xl shadow-sm border border-neutral-100 space-y-6 md:space-y-8">
         {/* Section 1: Detail Informasi Surat */}
         <div className="space-y-6">
@@ -153,7 +217,7 @@ export default function ArsipForm({
             <FileText size={24} className="text-primary-500" />
             Detail Informasi Surat
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1.5">
@@ -289,6 +353,79 @@ export default function ArsipForm({
               />
               {errors.kodeKlasifikasi && <p className="text-xs text-danger-500 mt-1">{errors.kodeKlasifikasi}</p>}
             </div>
+
+            {/* Labels Section */}
+            <div className="md:col-span-2 relative" ref={labelDropdownRef}>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                Label (Opsional)
+              </label>
+
+              <div className="flex flex-wrap gap-2 items-center min-h-[38px] p-1">
+                {selectedLabelIds.map(id => {
+                  const label = labels.find(l => l.id === id);
+                  if (!label) return null;
+                  return (
+                    <LabelBadge
+                      key={id}
+                      label={label}
+                      showDelete={true}
+                      onDelete={() => toggleLabel(id)}
+                    />
+                  );
+                })}
+
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowLabelDropdown(!showLabelDropdown)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 border border-neutral-200 border-dashed transition-colors"
+                  >
+                    <Plus size={12} />
+                    Tambah Label
+                  </button>
+
+                  <AnimatePresence>
+                    {showLabelDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 5 }}
+                        className="absolute top-full left-0 mt-2 w-64 bg-white border border-neutral-100 rounded-xl shadow-lg z-50 overflow-hidden"
+                      >
+                        <div className="p-2 border-b border-neutral-50">
+                          <input
+                            type="text"
+                            value={labelSearch}
+                            onChange={(e) => setLabelSearch(e.target.value)}
+                            placeholder="Cari label..."
+                            className="w-full px-2 py-1 text-sm bg-neutral-50 rounded-md outline-none"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
+                          {filteredLabels.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-neutral-400 text-center">
+                              {labelSearch ? 'Tidak ada label ditemukan' : 'Semua label sudah dipilih'}
+                            </div>
+                          ) : (
+                            filteredLabels.map(label => (
+                              <button
+                                key={label.id}
+                                type="button"
+                                onClick={() => toggleLabel(label.id)}
+                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-2 group transition-colors"
+                              >
+                                <LabelBadge label={label} size="sm" />
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -300,7 +437,7 @@ export default function ArsipForm({
             <LinkIcon size={24} className="text-primary-500" />
             Link Dokumen
           </h3>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1.5">
@@ -328,16 +465,16 @@ export default function ArsipForm({
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <p className="text-sm font-medium text-primary-900">Link Terlampir</p>
-                  <a 
-                    href={formData.googleDriveLink} 
-                    target="_blank" 
+                  <a
+                    href={formData.googleDriveLink}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-primary-600 hover:underline mt-1 block truncate"
                   >
                     {formData.googleDriveLink}
                   </a>
                 </div>
-                <button 
+                <button
                   type="button"
                   onClick={() => setFormData({ ...formData, googleDriveLink: '' })}
                   className="text-primary-400 hover:text-danger-500 transition-colors"

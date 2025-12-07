@@ -18,6 +18,7 @@ import InfoModal from './components/InfoModal';
 import ArsipDetail from './pages/ArsipDetail';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import KlasifikasiForm from './components/KlasifikasiForm';
+import LabelDashboard from './components/LabelDashboard';
 import { Modal, ModalHeader, ModalTitle, ModalContent } from './components/ui';
 
 // Styles
@@ -48,9 +49,11 @@ export default function App() {
     const {
         arsipList,
         klasifikasiList,
+        labels,
         isLoading: storeLoading,
         setArsipList,
         setKlasifikasiList,
+        setLabels,
         setIsLoading: setStoreLoading
     } = useAppStore();
 
@@ -78,10 +81,10 @@ export default function App() {
         const fetchData = async () => {
             setStoreLoading(true);
 
-            // Fetch Arsip
+            // Fetch Arsip with labels
             const { data: arsipData, error: arsipError } = await supabase
                 .from('arsip')
-                .select('*')
+                .select('*, arsip_labels(labels(*))')
                 .order('tanggalSurat', { ascending: false });
 
             if (arsipError) {
@@ -123,6 +126,19 @@ export default function App() {
                 a.kode.localeCompare(b.kode, undefined, { numeric: true })
             );
             setKlasifikasiList(sorted);
+
+            // Fetch Labels
+            const { data: labelsData, error: labelsError } = await supabase
+                .from('labels')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (labelsError) {
+                console.error("Error fetching labels:", labelsError);
+            } else {
+                setLabels(labelsData || []);
+            }
+
             setStoreLoading(false);
         };
 
@@ -158,10 +174,24 @@ export default function App() {
                 }
             ).subscribe();
 
+        const labelsChannel = supabase.channel('public:labels')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'labels' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setLabels(prev => [...prev, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
+                    } else if (payload.eventType === 'UPDATE') {
+                        setLabels(prev => prev.map(item => item.id === payload.new.id ? payload.new : item).sort((a, b) => a.name.localeCompare(b.name)));
+                    } else if (payload.eventType === 'DELETE') {
+                        setLabels(prev => prev.filter(item => item.id !== payload.old.id));
+                    }
+                }
+            ).subscribe();
+
         return () => {
             authListener?.subscription?.unsubscribe?.();
             supabase.removeChannel(arsipChannel);
             supabase.removeChannel(klasifikasiChannel);
+            supabase.removeChannel(labelsChannel);
         };
     }, []);
 
@@ -190,7 +220,6 @@ export default function App() {
 
         arsipList.forEach(arsip => {
             const suratDate = new Date(arsip.tanggalSurat);
-            const retensiDate = new Date(arsip.tanggalRetensi);
             const year = suratDate.getFullYear();
             const month = suratDate.getMonth();
 
@@ -239,7 +268,7 @@ export default function App() {
                 inactive: calculateTrend(currentMonthInactive, lastMonthInactive)
             }
         };
-    }, [arsipList]);
+    }, [arsipList, klasifikasiList]);
 
     // --- Actions ---
     const handleLogout = async () => {
@@ -320,6 +349,7 @@ export default function App() {
             case 'tambah': return 'Tambah Arsip';
             case 'semua': return 'Semua Arsip';
             case 'arsip': return 'Daftar Arsip';
+            case 'label': return 'Label & Kategori';
             case 'klasifikasi': return 'Kode Klasifikasi';
             default: return 'Sistem Arsip';
         }
@@ -343,7 +373,18 @@ export default function App() {
 
         switch (currentView) {
             case 'tambah':
-                return <ArsipForm {...props} arsipToEdit={editingArsip} arsipList={arsipList} onFinish={() => navigate('dashboard')} />;
+                return <ArsipForm
+                    {...props}
+                    arsipToEdit={editingArsip}
+                    arsipList={arsipList}
+                    labels={labels}
+                    onFinish={() => navigate('dashboard')}
+                />;
+            case 'label':
+                return <LabelDashboard
+                    {...props}
+                    navigate={navigate}
+                />;
             case 'klasifikasi':
                 return <KlasifikasiManager {...props} openModal={() => setShowKlasifikasiModal(true)} />;
             case 'semua':
