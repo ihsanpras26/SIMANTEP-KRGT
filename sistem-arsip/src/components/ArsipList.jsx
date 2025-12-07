@@ -26,6 +26,8 @@ import SearchableSelect from './SearchableSelect';
 import { getArsipStatus } from '../utils/statusUtils';
 import LabelManager from './LabelManager';
 import LabelBadge from './LabelBadge';
+import LabelAssignmentModal from './LabelAssignmentModal';
+import ContextMenu from './ContextMenu';
 import Pagination from './Pagination';
 import { Modal, ModalHeader, ModalTitle, ModalContent } from './ui';
 import useAppStore from '../store/useAppStore';
@@ -64,10 +66,13 @@ export default function ArsipList({
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showLabelManager, setShowLabelManager] = useState(false);
 
+  // Label Assignment State
+  const [labelAssignmentTarget, setLabelAssignmentTarget] = useState(null); // null, single item object, or array of items (bulk)
+  const [showLabelAssignmentModal, setShowLabelAssignmentModal] = useState(false);
+
   // Selection State
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [showBulkLabelModal, setShowBulkLabelModal] = useState(false);
 
   const filterButtonRef = useRef(null);
 
@@ -146,6 +151,40 @@ export default function ArsipList({
     });
   }, [arsipList, searchTerm, filterStatus, filterKlasifikasi, filterDate, filterLabel, sortBy, sortOrder]);
 
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, targetItems }
+
+  useEffect(() => {
+    // Close context menu on any click
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  const handleContextMenu = (e, item) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If right-clicked item is part of selection, treat as "Action on Selection"
+    // If NOT part of selection, select ONLY this item and treat as "Action on Single Item"
+    let targets = null;
+    if (selectedItems.has(item.id)) {
+      targets = currentData.filter(i => selectedItems.has(i.id));
+    } else {
+      // Clear selection and select this one (visually safer for user)
+      // Or just act on this one without changing selection? Standard explorer behavior: select this one.
+      setSelectedItems(new Set([item.id]));
+      setIsSelectionMode(true); // Wait, if we want right click to select, we should update selection state.
+      targets = [item];
+    }
+
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      targetItems: targets
+    });
+  };
+
   // Pagination Logic
   useEffect(() => {
     setCurrentPage(1);
@@ -182,39 +221,13 @@ export default function ArsipList({
     }
   };
 
-  const handleBulkLabel = async (labelId, action) => {
-    const selectedIds = Array.from(selectedItems);
-    const tempId = bulkUpdateLabelsOptimistic(selectedIds, labelId, action);
-    setShowBulkLabelModal(false);
-    showNotification(`Label ${action === 'add' ? 'ditambahkan' : 'dihapus'} untuk ${selectedIds.length} item`);
-
-    try {
-      if (action === 'add') {
-        const inserts = selectedIds.map(arsipId => ({
-          arsip_id: arsipId,
-          label_id: labelId
-        }));
-        // We need to ignore duplicates. Supabase doesn't have native "INSERT IGNORE" easy access via JS client
-        // So we might face errors if duplicates exist.
-        // Strategy: simple implementation, let's assume we handle duplicates gracefully or just try insert
-        const { error } = await supabase.from('arsip_labels').upsert(inserts, { onConflict: 'arsip_id, label_id', ignoreDuplicates: true });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('arsip_labels')
-          .delete()
-          .eq('label_id', labelId)
-          .in('arsip_id', selectedIds);
-        if (error) throw error;
-      }
-      confirmBulkUpdate(tempId);
-      setSelectedItems(new Set());
-      setIsSelectionMode(false);
-    } catch (error) {
-      console.error('Bulk update failed:', error);
-      rollbackBulkUpdate(tempId, arsipList); // This might be heavy, but accurate
-      showNotification('Gagal mengupdate label', 'error');
-    }
+  const handleOpenBulkLabel = () => {
+    const targets = currentData.filter(item => selectedItems.has(item.id));
+    setLabelAssignmentTarget(targets);
+    setShowLabelAssignmentModal(true);
   };
+
+
 
 
 
@@ -305,8 +318,15 @@ export default function ArsipList({
             </div>
 
             <button
-              onClick={() => setShowLabelManager(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm"
+              onClick={() => {
+                const newMode = !isSelectionMode;
+                setIsSelectionMode(newMode);
+                if (!newMode) setSelectedItems(new Set()); // Clear selection when turning off
+              }}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm",
+                isSelectionMode && "bg-primary-50 border-primary-200 text-primary-700 ring-2 ring-primary-500/20"
+              )}
             >
               <Tag size={18} />
               <span className="hidden sm:inline font-medium">Label</span>
@@ -483,6 +503,7 @@ export default function ArsipList({
                     return (
                       <tr
                         key={item.id}
+                        onContextMenu={(e) => handleContextMenu(e, item)}
                         className={cn(
                           "group transition-colors cursor-pointer",
                           isSelected ? "bg-primary-50/50" : "hover:bg-neutral-50"
@@ -503,7 +524,7 @@ export default function ArsipList({
                         <td className="p-4" onClick={() => setSelectedArsipDetail(item)}>
                           <div className="font-medium text-neutral-900">{item.perihal}</div>
                           <div className="text-xs text-neutral-500 truncate max-w-[200px] mb-1">{item.deskripsi}</div>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1 items-center">
                             {item.arsip_labels?.map(al => (
                               <LabelBadge key={al.label_id} label={al.labels} />
                             ))}
@@ -558,6 +579,7 @@ export default function ArsipList({
               return (
                 <div
                   key={item.id}
+                  onContextMenu={(e) => handleContextMenu(e, item)}
                   className={cn(
                     "bg-white rounded-xl shadow-sm border p-5 transition-all group relative flex flex-col h-full",
                     isSelected ? "border-primary-500 ring-1 ring-primary-500 bg-primary-50/10" : "border-neutral-200 hover:shadow-md"
@@ -590,6 +612,12 @@ export default function ArsipList({
                         className="p-1.5 text-neutral-400 hover:text-primary-600 rounded-lg transition-colors"
                       >
                         <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingArsip(item); }}
+                        className="p-1.5 text-neutral-400 hover:text-amber-600 rounded-lg transition-colors"
+                      >
+                        <Edit size={16} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingArsip(item); }}
@@ -675,7 +703,7 @@ export default function ArsipList({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowBulkLabelModal(true)}
+                onClick={handleOpenBulkLabel}
                 className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 rounded-lg text-sm font-bold transition-colors"
               >
                 <Tag size={16} />
@@ -708,40 +736,49 @@ export default function ArsipList({
       </Modal>
 
       {/* Bulk Label Modal */}
-      <Modal isOpen={showBulkLabelModal} onClose={() => setShowBulkLabelModal(false)} size="sm">
-        <ModalHeader onClose={() => setShowBulkLabelModal(false)}>
-          <ModalTitle>Atur Label ({selectedItems.size} Item)</ModalTitle>
+      {/* Bulk Label Modal (Unified) */}
+      <Modal isOpen={showLabelAssignmentModal} onClose={() => setShowLabelAssignmentModal(false)} size="sm">
+        <ModalHeader onClose={() => setShowLabelAssignmentModal(false)}>
+          <ModalTitle>
+            {Array.isArray(labelAssignmentTarget)
+              ? `Pilih Label (${labelAssignmentTarget.length} Item)`
+              : 'Pilih Label'}
+          </ModalTitle>
         </ModalHeader>
         <ModalContent>
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-500">Pilih label untuk ditambahkan ke item yang dipilih.</p>
-            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-              {labels.map(label => (
-                <div key={label.id} className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors group">
-                  <LabelBadge label={label} />
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleBulkLabel(label.id, 'add')}
-                      className="p-1.5 bg-white border border-neutral-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 text-xs font-bold shadow-sm"
-                      title="Tambahkan Label"
-                    >
-                      <Plus size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleBulkLabel(label.id, 'remove')}
-                      className="p-1.5 bg-white border border-neutral-200 rounded-lg text-red-600 hover:bg-red-50 hover:border-red-200 text-xs font-bold shadow-sm"
-                      title="Hapus Label dari Item"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <LabelAssignmentModal
+            targetArsips={labelAssignmentTarget}
+            onClose={() => setShowLabelAssignmentModal(false)}
+            showNotification={showNotification}
+          />
         </ModalContent>
       </Modal>
 
-    </div>
+
+
+      {/* Context Menu */}
+      {
+        contextMenu && (
+          <ContextMenu
+            position={{ x: contextMenu.x, y: contextMenu.y }}
+            targetItems={contextMenu.targetItems}
+            onClose={() => setContextMenu(null)}
+            onManageLabels={() => {
+              setLabelAssignmentTarget(contextMenu.targetItems);
+              setShowLabelAssignmentModal(true);
+            }}
+            onDelete={() => {
+              console.log('Delete requested');
+            }}
+            onViewDetail={() => {
+              if (contextMenu.targetItems.length === 1) {
+                setSelectedArsipDetail(contextMenu.targetItems[0]);
+              }
+            }}
+          />
+        )
+      }
+
+    </div >
   );
 }

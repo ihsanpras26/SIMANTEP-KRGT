@@ -37,42 +37,33 @@ export default function LabelDashboard({
 
     // Color mapping for style consistency with Dashboard
     const getLabelColorClasses = (colorName) => {
-        // Basic mapping, can be expanded. 
-        // Format: [bg, text]
+        // Format: [bg, text, border]
         const map = {
-            rose: ['bg-rose-50', 'text-rose-600'],
-            pink: ['bg-pink-50', 'text-pink-600'],
-            purple: ['bg-purple-50', 'text-purple-600'],
-            indigo: ['bg-indigo-50', 'text-indigo-600'],
-            blue: ['bg-blue-50', 'text-blue-600'],
-            sky: ['bg-sky-50', 'text-sky-600'],
-            cyan: ['bg-cyan-50', 'text-cyan-600'],
-            teal: ['bg-teal-50', 'text-teal-600'],
-            emerald: ['bg-emerald-50', 'text-emerald-600'],
-            green: ['bg-green-50', 'text-green-600'],
-            lime: ['bg-lime-50', 'text-lime-600'],
-            yellow: ['bg-yellow-50', 'text-yellow-600'],
-            amber: ['bg-amber-50', 'text-amber-600'],
-            orange: ['bg-orange-50', 'text-orange-600'],
-            red: ['bg-red-50', 'text-red-600'],
-            stone: ['bg-stone-50', 'text-stone-600'],
-            neutral: ['bg-neutral-50', 'text-neutral-600'],
+            rose: ['bg-rose-50', 'text-rose-600', 'border-rose-500'],
+            pink: ['bg-pink-50', 'text-pink-600', 'border-pink-500'],
+            purple: ['bg-purple-50', 'text-purple-600', 'border-purple-500'],
+            indigo: ['bg-indigo-50', 'text-indigo-600', 'border-indigo-500'],
+            blue: ['bg-blue-50', 'text-blue-600', 'border-blue-500'],
+            sky: ['bg-sky-50', 'text-sky-600', 'border-sky-500'],
+            cyan: ['bg-cyan-50', 'text-cyan-600', 'border-cyan-500'],
+            teal: ['bg-teal-50', 'text-teal-600', 'border-teal-500'],
+            emerald: ['bg-emerald-50', 'text-emerald-600', 'border-emerald-500'],
+            green: ['bg-green-50', 'text-green-600', 'border-green-500'],
+            lime: ['bg-lime-50', 'text-lime-600', 'border-lime-500'],
+            yellow: ['bg-yellow-50', 'text-yellow-600', 'border-yellow-500'],
+            amber: ['bg-amber-50', 'text-amber-600', 'border-amber-500'],
+            orange: ['bg-orange-50', 'text-orange-600', 'border-orange-500'],
+            red: ['bg-red-50', 'text-red-600', 'border-red-500'],
+            stone: ['bg-stone-50', 'text-stone-600', 'border-stone-500'],
+            neutral: ['bg-neutral-50', 'text-neutral-600', 'border-neutral-500'],
         };
-        return map[colorName] || ['bg-neutral-50', 'text-neutral-600'];
+        return map[colorName] || ['bg-neutral-50', 'text-neutral-600', 'border-neutral-500'];
     };
 
     return (
         <div className="space-y-8 pb-12">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-display font-bold text-neutral-900 tracking-tight">
-                        Label & Kategori
-                    </h1>
-                    <p className="text-base text-neutral-500 max-w-xl">
-                        Kelola pengelompokan arsip untuk memudahkan pencarian.
-                    </p>
-                </div>
+            <div className="flex flex-col md:flex-row md:items-end justify-end gap-6">
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                     <div className="relative group w-full sm:w-auto">
@@ -102,34 +93,33 @@ export default function LabelDashboard({
             {/* Grid Content */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {/* 'All Archives' Card - Matches Dashboard Stat Card with a twist */}
+                {/* 'All Archives' Card */}
                 <motion.button
                     whileHover={{ y: -4 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate('arsip', { filterLabel: 'all' })}
-                    className="group relative flex flex-col h-full bg-white rounded-2xl p-6 text-left shadow-card border border-neutral-100 hover:shadow-soft transition-all duration-300"
+                    className="group relative flex flex-col h-full bg-white rounded-2xl p-6 text-left shadow-sm border border-neutral-200 hover:shadow-md hover:border-neutral-300 transition-all duration-300 overflow-hidden"
                 >
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 rounded-xl bg-neutral-900 text-white shadow-lg shadow-neutral-900/20">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-neutral-900" />
+
+                    <div className="flex justify-between items-start mb-6">
+                        <div className="p-3.5 rounded-2xl bg-neutral-900 text-white shadow-lg shadow-neutral-900/10 group-hover:scale-105 transition-transform duration-300">
                             <Layers size={24} />
                         </div>
-                        <div className="px-2 py-1 rounded-full bg-neutral-100 text-neutral-600 text-xs font-medium flex items-center">
-                            Total
+                        <div className="px-3 py-1 rounded-full bg-neutral-100 text-neutral-600 text-xs font-bold font-mono tracking-tight">
+                            TOTAL
                         </div>
                     </div>
 
-                    <h3 className="text-3xl font-display font-bold text-neutral-900 mb-1">
-                        {arsipList.length}
-                    </h3>
-                    <p className="text-sm font-medium text-neutral-500">Semua Arsip</p>
-
-                    <div className="mt-4 pt-4 border-t border-neutral-50 flex items-center text-primary-600 text-sm font-semibold group-hover:gap-2 transition-all">
-                        Lihat Semua
-                        <ArrowUpRight size={16} className="ml-1" />
+                    <div className="mt-auto space-y-1">
+                        <h3 className="text-3xl font-display font-bold text-neutral-900 tracking-tight">
+                            {arsipList.length}
+                        </h3>
+                        <p className="text-sm font-medium text-neutral-500">Semua Arsip</p>
                     </div>
 
-                    {/* Subtle Texture */}
-                    <div className="absolute top-0 right-0 p-6 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform">
-                        <Archive size={100} />
+                    <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
+                        <ArrowUpRight size={20} className="text-neutral-400" />
                     </div>
                 </motion.button>
 
@@ -137,7 +127,7 @@ export default function LabelDashboard({
                 <AnimatePresence>
                     {filteredLabels.map((label, index) => {
                         const count = getLabelStats(label.id);
-                        const [bgClass, textClass] = getLabelColorClasses(label.color);
+                        const [bgClass, textClass, borderClass] = getLabelColorClasses(label.color);
 
                         return (
                             <motion.button
@@ -149,26 +139,41 @@ export default function LabelDashboard({
                                 whileHover={{ y: -4 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => navigate('arsip', { filterLabel: label.id })}
-                                className="group relative flex flex-col h-full bg-white rounded-2xl p-6 text-left shadow-card border border-neutral-100 hover:shadow-soft transition-all duration-300 overflow-hidden"
+                                className="group relative flex flex-col h-full bg-white rounded-2xl p-6 text-left shadow-sm border border-neutral-200 hover:shadow-md hover:border-neutral-300 transition-all duration-300 overflow-hidden"
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={cn("p-3 rounded-xl transition-transform duration-300 group-hover:scale-110", bgClass, textClass)}>
+                                <div className={cn("absolute top-0 left-0 w-full h-1", borderClass.replace('border-', 'bg-'))} />
+
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className={cn(
+                                        "p-3.5 rounded-2xl transition-transform duration-300 group-hover:scale-105",
+                                        bgClass,
+                                        textClass
+                                    )}>
                                         <Tag size={24} />
                                     </div>
-                                    <div className={cn("px-2 py-1 rounded-full text-xs font-medium", bgClass, textClass)}>
+                                    <div className={cn(
+                                        "px-3 py-1 rounded-full text-xs font-bold font-mono tracking-tight",
+                                        bgClass,
+                                        textClass
+                                    )}>
                                         {count} File
                                     </div>
                                 </div>
 
-                                <h3 className="text-lg font-bold text-neutral-900 mb-1 line-clamp-1" title={label.name}>
-                                    {label.name}
-                                </h3>
-                                <p className="text-sm text-neutral-500 font-mono text-xs opacity-60">ID: {label.id.slice(0, 4)}</p>
+                                <div className="mt-auto space-y-1">
+                                    <h3
+                                        className="text-lg font-bold text-neutral-900 line-clamp-2 leading-tight group-hover:text-primary-600 transition-colors"
+                                        title={label.name}
+                                    >
+                                        {label.name}
+                                    </h3>
+                                    {/* ID Removed as requested */}
+                                </div>
 
-                                {/* Decorative Blob similar to Dashboard */}
+                                {/* Subtle decorative background blob */}
                                 <div className={cn(
-                                    "absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 blur-2xl transition-transform duration-500 group-hover:scale-125",
-                                    bgClass.replace('bg-', '') === 'bg-white' ? 'bg-neutral-200' : bgClass
+                                    "absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-[0.08] blur-3xl transition-transform duration-500 group-hover:scale-125",
+                                    bgClass.replace('bg-', '') === 'bg-white' ? 'bg-neutral-200' : bgClass.replace('bg-', 'bg-') // Simplified color derivation
                                 )} />
                             </motion.button>
                         );
