@@ -44,7 +44,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 h-screen bg-white border-r border-neutral-200 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col shadow-soft",
+          "fixed inset-y-0 left-0 z-50 bg-white border-r border-neutral-200 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col shadow-soft",
           // Desktop width
           collapsed ? "md:w-[72px]" : "md:w-72",
           // Mobile width and transform
