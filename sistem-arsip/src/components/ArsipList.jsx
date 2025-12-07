@@ -23,7 +23,7 @@ import { id } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { cn } from '../utils/cn';
 import Tooltip from './Tooltip';
-import Tooltip from './Tooltip';
+
 import SearchableSelect from './SearchableSelect';
 import { getArsipStatus } from '../utils/statusUtils';
 
@@ -62,9 +62,9 @@ export default function ArsipList({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        showFilters && 
-        !event.target.closest('.filter-container') && 
-        filterButtonRef.current && 
+        showFilters &&
+        !event.target.closest('.filter-container') &&
+        filterButtonRef.current &&
         !filterButtonRef.current.contains(event.target)
       ) {
         setShowFilters(false);
@@ -120,7 +120,7 @@ export default function ArsipList({
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -261,11 +261,11 @@ export default function ArsipList({
       {(filterStatus !== 'all' || filterKlasifikasi !== 'all' || filterDate) && (
         <div className="flex flex-wrap items-center gap-2 -mt-2">
           <span className="text-xs font-medium text-neutral-500 mr-1">Filter Aktif:</span>
-          
+
           {filterStatus !== 'all' && (
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-medium border border-neutral-200">
               Status: {filterStatus === 'active' ? 'Aktif' : 'Inaktif'}
-              <button 
+              <button
                 onClick={() => setFilterStatus('all')}
                 className="p-0.5 hover:bg-neutral-200 rounded-full transition-colors ml-1"
               >
@@ -279,7 +279,7 @@ export default function ArsipList({
           {filterKlasifikasi !== 'all' && (
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-medium border border-neutral-200">
               Klasifikasi: {klasifikasiList.find(k => k.kode === filterKlasifikasi)?.kode || filterKlasifikasi}
-              <button 
+              <button
                 onClick={() => setFilterKlasifikasi('all')}
                 className="p-0.5 hover:bg-neutral-200 rounded-full transition-colors ml-1"
               >
@@ -293,7 +293,7 @@ export default function ArsipList({
           {filterDate && (
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-medium border border-neutral-200">
               Tanggal: {format(new Date(filterDate), 'dd MMM yyyy', { locale: id })}
-              <button 
+              <button
                 onClick={() => setFilterDate('')}
                 className="p-0.5 hover:bg-neutral-200 rounded-full transition-colors ml-1"
               >
@@ -304,7 +304,7 @@ export default function ArsipList({
             </span>
           )}
 
-          <button 
+          <button
             onClick={() => {
               setFilterStatus('all');
               setFilterKlasifikasi('all');
@@ -558,7 +558,7 @@ export default function ArsipList({
             >
               <ChevronLeft size={18} />
             </button>
-            
+
             <div className="flex items-center gap-1">
               {getPageNumbers().map((page, index) => (
                 <button
