@@ -14,6 +14,8 @@ const COLORS = [
     'bg-rose-500', 'bg-slate-500'
 ];
 
+import { supabase } from '../utils/supabaseClient';
+
 export default function LabelAssignmentModal({ targetArsips, onClose, showNotification }) {
     const {
         labels,
@@ -25,8 +27,7 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
         rollbackLabelOptimistic,
         deleteLabelOptimistic,
         confirmDeleteLabelOptimistic,
-        rollbackDeleteLabelOptimistic,
-        supabase
+        rollbackDeleteLabelOptimistic
     } = useAppStore();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -64,28 +65,57 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
         );
     }, [labels, searchTerm]);
 
-    const handleToggleLabel = async (label) => {
-        const currentState = labelStates[label.id];
-        const action = currentState === 'all' ? 'remove' : 'add';
-        const tempId = bulkUpdateLabelsOptimistic(targetIds, label.id, action);
+    const [selectedLabelIdForApply, setSelectedLabelIdForApply] = useState(null);
 
-        if (action === 'add') showNotification(`Label "${label.name}" ditambahkan`);
-        else showNotification(`Label "${label.name}" dihapus`);
+    const handleSelectLabel = (label) => {
+        // Single select toggle
+        if (selectedLabelIdForApply === label.id) {
+            setSelectedLabelIdForApply(null);
+        } else {
+            setSelectedLabelIdForApply(label.id);
+        }
+    };
+
+    const handleApplyLabel = async () => {
+        if (!selectedLabelIdForApply) return;
+
+        const label = labels.find(l => l.id === selectedLabelIdForApply);
+        if (!label) return;
+
+        const count = targetIds.length;
+        const confirmMsg = `Yakin ingin menambahkan label "${label.name}" ke ${count} arsip terpilih?`;
+
+        if (!window.confirm(confirmMsg)) return;
+
+        // Optimistic UI
+        const tempId = bulkUpdateLabelsOptimistic(targetIds, label.id, 'add');
+        showNotification(`Label "${label.name}" ditambahkan`);
+        onClose(); // Close modal immediately
 
         try {
-            if (action === 'add') {
-                const inserts = targetIds.map(arsipId => ({ arsip_id: arsipId, label_id: label.id }));
-                const { error } = await supabase.from('arsip_labels').upsert(inserts, { onConflict: 'arsip_id, label_id', ignoreDuplicates: true });
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from('arsip_labels').delete().eq('label_id', label.id).in('arsip_id', targetIds);
+            // Check existing links first
+            const { data: existingLinks, error: fetchError } = await supabase
+                .from('arsip_labels')
+                .select('arsip_id')
+                .eq('label_id', label.id)
+                .in('arsip_id', targetIds);
+
+            if (fetchError) throw fetchError;
+
+            const existingArsipIds = new Set(existingLinks?.map(link => link.arsip_id) || []);
+            const labelsToInsert = targetIds
+                .filter(id => !existingArsipIds.has(id))
+                .map(arsipId => ({ arsip_id: arsipId, label_id: label.id }));
+
+            if (labelsToInsert.length > 0) {
+                const { error } = await supabase.from('arsip_labels').insert(labelsToInsert);
                 if (error) throw error;
             }
             confirmBulkUpdate(tempId);
         } catch (error) {
             console.error('Label assignment failed:', error);
             rollbackBulkUpdate(tempId, Array.isArray(targetArsips) ? targetArsips : [targetArsips]);
-            showNotification('Gagal mengupdate label', 'error');
+            showNotification(`Gagal mengupdate label: ${error.message}`, 'error');
         }
     };
 
@@ -93,6 +123,13 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
         if (!newLabelName.trim()) return;
         const name = newLabelName.trim();
         const color = selectedColor;
+
+        // Pre-check for duplicate name (Case insensitive check on client side first)
+        const isDuplicate = labels.some(l => l.name.toLowerCase() === name.toLowerCase());
+        if (isDuplicate) {
+            showNotification('Label dengan nama tersebut sudah ada', 'error');
+            return;
+        }
 
         const tempId = addLabelOptimistic({ name, color });
         setNewLabelName('');
@@ -106,7 +143,7 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
         } catch (error) {
             console.error('Create label failed:', error);
             rollbackLabelOptimistic(tempId);
-            showNotification('Gagal membuat label', 'error');
+            showNotification(`Gagal membuat label: ${error.message}`, 'error');
         }
     };
 
@@ -154,29 +191,26 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
                     </div>
                 ) : (
                     filteredLabels.map(label => {
-                        const state = labelStates[label.id];
-                        const isSelected = state === 'all';
-                        const isPartial = state === 'some';
+                        const isSelected = selectedLabelIdForApply === label.id;
 
                         return (
-                            <motion.button
+                            <motion.div
                                 key={label.id}
                                 layout
-                                onClick={() => handleToggleLabel(label)}
+                                onClick={() => handleSelectLabel(label)}
                                 className={cn(
-                                    "w-full flex items-center justify-between p-3 rounded-xl transition-all group relative pr-10", // extra padding for delete btn
-                                    isSelected ? "bg-primary-50 border border-primary-100" : "hover:bg-neutral-50 border border-transparent"
+                                    "w-full flex items-center justify-between p-3 rounded-xl transition-all group relative pr-10 cursor-pointer",
+                                    isSelected ? "bg-primary-50 border border-primary-500 ring-1 ring-primary-500" : "hover:bg-neutral-50 border border-transparent"
                                 )}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className={cn(
-                                        "w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                                        isSelected || isPartial
+                                        "w-5 h-5 rounded-full border flex items-center justify-center transition-colors",
+                                        isSelected
                                             ? "bg-primary-500 border-primary-500"
                                             : "border-neutral-300 bg-white group-hover:border-primary-400"
                                     )}>
-                                        {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
-                                        {isPartial && <div className="w-2 h-0.5 bg-white rounded-full" />}
+                                        {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
                                     </div>
                                     <LabelBadge label={label} />
                                 </div>
@@ -188,7 +222,7 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
                                 >
                                     <Trash2 size={14} />
                                 </button>
-                            </motion.button>
+                            </motion.div>
                         );
                     })
                 )}
@@ -197,13 +231,28 @@ export default function LabelAssignmentModal({ targetArsips, onClose, showNotifi
             {/* Footer / Create New */}
             <div className="p-4 border-t border-neutral-100 bg-neutral-50/50">
                 {!isCreating ? (
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-dashed border-neutral-300 text-neutral-500 rounded-xl hover:bg-white hover:border-primary-400 hover:text-primary-600 transition-all text-sm font-medium"
-                    >
-                        <Plus size={16} />
-                        Buat Label Baru
-                    </button>
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={handleApplyLabel}
+                            disabled={!selectedLabelIdForApply}
+                            className={cn(
+                                "w-full py-2.5 rounded-xl font-bold transition-all shadow-sm",
+                                selectedLabelIdForApply
+                                    ? "bg-primary-600 text-white hover:bg-primary-700 shadow-primary-500/20"
+                                    : "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                            )}
+                        >
+                            Terapkan Label
+                        </button>
+
+                        <button
+                            onClick={() => setIsCreating(true)}
+                            className="w-full flex items-center justify-center gap-2 py-2 text-neutral-500 hover:text-primary-600 transition-all text-sm font-medium"
+                        >
+                            <Plus size={16} />
+                            Buat Label Baru
+                        </button>
+                    </div>
                 ) : (
                     <div className="space-y-3 bg-white p-3 rounded-xl border border-neutral-200 shadow-sm">
                         <input

@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { Plus, Search, FolderKanban, Edit, Trash2, ChevronRight, ChevronDown, FolderOpen, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
+import { useKlasifikasi } from '../hooks/useKlasifikasi';
 
-const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, setEditingKlasifikasi, showNotification, setDeleteConfirmModal, openModal }) => {
+const KlasifikasiManager = ({ supabase, editingKlasifikasi, setEditingKlasifikasi, showNotification, setDeleteConfirmModal, openModal }) => {
+    const { data: klasifikasiData } = useKlasifikasi();
+    const klasifikasiList = klasifikasiData || [];
     const [searchKode, setSearchKode] = useState('');
     const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -13,13 +16,13 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
     };
 
     const handleDelete = (id, kode) => {
-        setDeleteConfirmModal({ 
-            show: true, 
-            id, 
-            message: `Anda yakin ingin menghapus kode klasifikasi "${kode}"? Tindakan ini tidak dapat diurungkan.` 
+        setDeleteConfirmModal({
+            show: true,
+            id,
+            message: `Anda yakin ingin menghapus kode klasifikasi "${kode}"? Tindakan ini tidak dapat diurungkan.`
         });
     };
-    
+
     const toggleCategory = (code) => {
         setExpandedCategories(prev => ({
             ...prev,
@@ -28,11 +31,11 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
     };
 
     // Filter & Group Logic
-    const filteredKlasifikasi = klasifikasiList.filter(k => 
+    const filteredKlasifikasi = klasifikasiList.filter(k =>
         k.kode.toLowerCase().includes(searchKode.toLowerCase()) ||
         k.deskripsi.toLowerCase().includes(searchKode.toLowerCase())
     );
-    
+
     const groupedKlasifikasi = filteredKlasifikasi.reduce((acc, k) => {
         const mainCode = k.kode.split('.')[0];
         if (!acc[mainCode]) acc[mainCode] = [];
@@ -76,18 +79,18 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                     )}
                 </div>
 
-                <button 
-                    onClick={() => { 
-                        setEditingKlasifikasi(null); 
-                        openModal && openModal(); 
-                    }} 
+                <button
+                    onClick={() => {
+                        setEditingKlasifikasi(null);
+                        openModal && openModal();
+                    }}
                     className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all"
                 >
                     <Plus size={20} />
                     <span>Tambah Kode</span>
                 </button>
             </div>
-            
+
             {/* Classification List */}
             <div className="space-y-4">
                 {Object.entries(groupedKlasifikasi)
@@ -96,11 +99,11 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                         const mainItem = items.find(i => i.kode === mainCode);
                         const subItems = items.filter(i => i.kode !== mainCode).sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
                         const isExpanded = expandedCategories[mainCode];
-                        
+
                         return (
                             <div key={mainCode} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
                                 {/* Main Category Header */}
-                                <div 
+                                <div
                                     className={cn(
                                         "p-5 cursor-pointer transition-colors flex items-center justify-between group",
                                         isExpanded ? "bg-neutral-50" : "bg-white hover:bg-neutral-50"
@@ -122,7 +125,7 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                                             <div className="text-neutral-600 text-sm mt-0.5">
                                                 {mainItem ? mainItem.deskripsi : (subItems.length > 0 ? 'Kategori Induk' : 'Tidak ada deskripsi')}
                                             </div>
-                                            
+
                                             {/* Metadata Badges */}
                                             {mainItem && mainCode.length > 3 && (
                                                 <div className="flex items-center gap-2 mt-2">
@@ -142,14 +145,14 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                                     <div className="flex items-center gap-3">
                                         {mainItem && mainCode.length > 3 && (
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button 
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); handleEdit(mainItem); }}
                                                     className="p-2 text-neutral-400 hover:text-primary-600 hover:bg-white rounded-lg transition-colors"
                                                     title="Edit"
                                                 >
                                                     <Edit size={18} />
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); handleDelete(mainItem.id, mainItem.kode); }}
                                                     className="p-2 text-neutral-400 hover:text-danger-600 hover:bg-white rounded-lg transition-colors"
                                                     title="Hapus"
@@ -168,7 +171,7 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                                         )}
                                     </div>
                                 </div>
-                                
+
                                 {/* Sub Categories */}
                                 <AnimatePresence>
                                     {isExpanded && subItems.length > 0 && (
@@ -182,10 +185,10 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                                                 {subItems.map(item => {
                                                     const level = item.kode.split('.').length;
                                                     const isSubCategory = level === 2;
-                                                    
+
                                                     return (
-                                                        <div 
-                                                            key={item.id} 
+                                                        <div
+                                                            key={item.id}
                                                             onClick={() => handleEdit(item)}
                                                             className={cn(
                                                                 "group flex items-center justify-between p-3 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-neutral-100 transition-all cursor-pointer",
@@ -214,15 +217,15 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            
+
                                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button 
+                                                                <button
                                                                     onClick={() => handleEdit(item)}
                                                                     className="p-1.5 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                                                                 >
                                                                     <Edit size={16} />
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     onClick={() => handleDelete(item.id, item.kode)}
                                                                     className="p-1.5 text-neutral-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
                                                                 >
@@ -240,7 +243,7 @@ const KlasifikasiManager = ({ supabase, klasifikasiList, editingKlasifikasi, set
                         );
                     })}
             </div>
-            
+
             {filteredKlasifikasi.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-neutral-200 border-dashed">
                     <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center mb-4">

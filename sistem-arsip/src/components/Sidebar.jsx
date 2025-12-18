@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Archive,
@@ -7,9 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Leaf,
-  Settings,
-  HelpCircle,
-  LogOut,
   Tag
 } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -19,17 +17,23 @@ export function Sidebar({
   mobileOpen,
   onToggle,
   onMobileClose,
-  currentView,
-  onNavigate,
   onShowInfo
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const mainNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'arsip', label: 'Daftar Arsip', icon: Archive },
-    { id: 'tambah', label: 'Tambah Arsip', icon: FilePlus },
-    { id: 'label', label: 'Label & Kategori', icon: Tag },
-    { id: 'klasifikasi', label: 'Klasifikasi', icon: FolderKanban },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    { id: 'arsip', label: 'Daftar Arsip', icon: Archive, path: '/arsip' },
+    { id: 'tambah', label: 'Tambah Arsip', icon: FilePlus, path: '/arsip/tambah' },
+    { id: 'label', label: 'Label & Kategori', icon: Tag, path: '/label' },
+    { id: 'klasifikasi', label: 'Klasifikasi', icon: FolderKanban, path: '/klasifikasi' },
   ];
+
+  const handleNavigate = (path) => {
+    navigate(path);
+    onMobileClose();
+  };
 
   return (
     <>
@@ -74,11 +78,23 @@ export function Sidebar({
             )}
             <nav className="space-y-1">
               {mainNavItems.map((item) => {
-                const isActive = currentView === item.id;
+                let isActive = false;
+
+                if (item.path === '/') {
+                  isActive = location.pathname === '/';
+                } else if (item.path === '/arsip') {
+                  // Special active logic for 'Daftar Arsip':
+                  // Active if path starts with /arsip BUT is NOT /arsip/tambah
+                  isActive = location.pathname.startsWith('/arsip') && location.pathname !== '/arsip/tambah';
+                } else {
+                  // Default behavior for other items (including /arsip/tambah)
+                  isActive = location.pathname.startsWith(item.path);
+                }
+
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => handleNavigate(item.path)}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
                       isActive

@@ -18,15 +18,24 @@ import SearchableSelect from './SearchableSelect';
 import { cn } from '../utils/cn';
 import LabelBadge from './LabelBadge';
 
+import { useArsip } from '../hooks/useArsip';
+import { useKlasifikasi } from '../hooks/useKlasifikasi';
+import { useLabels } from '../hooks/useLabels';
+
 export default function ArsipForm({
   supabase,
   arsipToEdit,
   onFinish,
-  showNotification,
-  arsipList,
-  klasifikasiList,
-  labels = [] // New prop
+  showNotification
 }) {
+  // Fetch ALL data for autocomplete suggestions
+  const { data: arsipData } = useArsip({ page: 'all', pageSize: 10000 });
+  const { data: klasifikasiData } = useKlasifikasi();
+  const { data: labelsData } = useLabels();
+
+  const arsipList = arsipData?.data || [];
+  const klasifikasiList = klasifikasiData || [];
+  const labels = labelsData || [];
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nomorSurat: '',
@@ -58,7 +67,11 @@ export default function ArsipForm({
         pengirim: arsipToEdit.pengirim || '',
         googleDriveLink: arsipToEdit.googleDriveLink || ''
       });
-      if (arsipToEdit.tujuan) {
+
+      if (arsipToEdit.tujuanSurat) {
+        setTujuanList(arsipToEdit.tujuanSurat.split('; ').filter(Boolean));
+      } else if (arsipToEdit.tujuan) {
+        // Fallback if legacy object has 'tujuan'
         setTujuanList(arsipToEdit.tujuan.split('; ').filter(Boolean));
       }
       // Initialize labels
@@ -83,12 +96,13 @@ export default function ArsipForm({
   // Validation
   const validate = () => {
     const newErrors = {};
-    if (!formData.nomorSurat) newErrors.nomorSurat = 'Nomor surat wajib diisi';
+    // nomorSurat, pengirim, tujuan are now optional
+    // if (!formData.nomorSurat) newErrors.nomorSurat = 'Nomor surat wajib diisi';
     if (!formData.perihal) newErrors.perihal = 'Perihal wajib diisi';
     if (!formData.kodeKlasifikasi) newErrors.kodeKlasifikasi = 'Kode klasifikasi wajib dipilih';
     if (!formData.tanggalSurat) newErrors.tanggalSurat = 'Tanggal surat wajib diisi';
-    if (!formData.pengirim) newErrors.pengirim = 'Pengirim wajib diisi';
-    if (tujuanList.length === 0) newErrors.tujuan = 'Tujuan surat wajib diisi';
+    // if (!formData.pengirim) newErrors.pengirim = 'Pengirim wajib diisi';
+    // if (tujuanList.length === 0 && !tujuanInput.trim()) newErrors.tujuan = 'Tujuan surat wajib diisi';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -97,9 +111,47 @@ export default function ArsipForm({
   // Handle Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) {
+
+    // Auto-add pending tujuan input if list is empty
+    let finalTujuanList = [...tujuanList];
+    if (finalTujuanList.length === 0 && tujuanInput.trim()) {
+      finalTujuanList.push(tujuanInput.trim());
+    }
+
+    // Custom validation check using the derived list
+    // Custom validation check using the derived list
+    const newErrors = {};
+    // if (!formData.nomorSurat) newErrors.nomorSurat = 'Nomor surat wajib diisi';
+    if (!formData.perihal) newErrors.perihal = 'Perihal wajib diisi';
+    if (!formData.kodeKlasifikasi) newErrors.kodeKlasifikasi = 'Kode klasifikasi wajib dipilih';
+    if (!formData.tanggalSurat) newErrors.tanggalSurat = 'Tanggal surat wajib diisi';
+    // if (!formData.pengirim) newErrors.pengirim = 'Pengirim wajib diisi';
+    // if (finalTujuanList.length === 0) newErrors.tujuan = 'Tujuan surat wajib diisi';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       toast.error('Mohon lengkapi data yang wajib diisi');
       return;
+    }
+
+    // Check for duplicate nomorSurat if provided
+    if (formData.nomorSurat) {
+      // Check duplicate
+      let query = supabase
+        .from('arsip')
+        .select('id')
+        .eq('nomorSurat', formData.nomorSurat);
+
+      if (arsipToEdit) {
+        query = query.neq('id', arsipToEdit.id);
+      }
+
+      const { data: duplicate } = await query.maybeSingle();
+
+      if (duplicate) {
+        toast.error(`Nomor Surat "${formData.nomorSurat}" sudah terdaftar!`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -111,9 +163,9 @@ export default function ArsipForm({
 
       const payload = {
         ...formData,
-        tujuan: tujuanList.join('; '),
-        tanggalRetensi: retensiDate.toISOString(),
-        updated_at: new Date().toISOString()
+        tujuanSurat: finalTujuanList.join('; '),
+        tanggalRetensi: retensiDate.toISOString()
+        // updated_at removed as it is not in schema
       };
 
       let arsipId;
@@ -205,7 +257,10 @@ export default function ArsipForm({
   const nomorSuratSuggestions = [...new Set(arsipList.map(a => a.nomorSurat))];
   const perihalSuggestions = [...new Set(arsipList.map(a => a.perihal))];
   const pengirimSuggestions = [...new Set(arsipList.map(a => a.pengirim).filter(Boolean))];
-  const allTujuan = arsipList.flatMap(a => a.tujuan ? a.tujuan.split('; ') : []).filter(Boolean);
+  const allTujuan = arsipList.flatMap(a => {
+    const val = a.tujuanSurat || a.tujuan;
+    return val ? val.split('; ') : [];
+  }).filter(Boolean);
   const tujuanSuggestions = [...new Set(allTujuan)];
 
   return (
@@ -221,7 +276,7 @@ export default function ArsipForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Nomor Surat <span className="text-danger-500">*</span>
+                Nomor Surat
               </label>
               <div className="relative">
                 <Hash size={16} className="absolute left-3 top-3 text-neutral-400" />
@@ -261,7 +316,7 @@ export default function ArsipForm({
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                  Pengirim <span className="text-danger-500">*</span>
+                  Pengirim
                 </label>
                 <AutocompleteInput
                   suggestions={pengirimSuggestions}
@@ -278,7 +333,7 @@ export default function ArsipForm({
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                  Tujuan Surat <span className="text-danger-500">*</span>
+                  Tujuan Surat
                 </label>
                 <div className={cn(
                   "w-full bg-neutral-50 border border-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-500 transition-all px-3 py-2 flex flex-wrap gap-2 min-h-[42px]",

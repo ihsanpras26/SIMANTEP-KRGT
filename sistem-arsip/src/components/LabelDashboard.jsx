@@ -6,20 +6,38 @@ import {
     ArrowUpRight,
     Archive,
     Layers,
-    Filter
+    Filter,
+    Star,
+    Heart,
+    Bookmark,
+    Flag,
+    Zap,
+    Clock,
+    AlertCircle,
+    CheckCircle,
+    Info,
+    TrendingUp,
+    FileText,
+    Users,
+    Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 import LabelManager from './LabelManager';
 import { Modal, ModalHeader, ModalTitle, ModalContent } from './ui';
 import useAppStore from '../store/useAppStore';
+import { useArsip } from '../hooks/useArsip';
 
 export default function LabelDashboard({
     supabase,
     navigate,
     showNotification
 }) {
-    const { labels, arsipList } = useAppStore();
+    const { labels } = useAppStore();
+    // Fetch ALL archives to get accurate stats
+    const { data: arsipData } = useArsip({ page: 'all', pageSize: 10000 });
+    const arsipList = arsipData?.data || [];
+
     const [searchTerm, setSearchTerm] = useState('');
     const [showLabelManager, setShowLabelManager] = useState(false);
 
@@ -31,33 +49,44 @@ export default function LabelDashboard({
     // Calculate stats per label
     const getLabelStats = (labelId) => {
         return arsipList.filter(arsip =>
-            arsip.arsip_labels?.some(al => al.label_id === labelId)
+            arsip.arsip_labels?.some(al => (al.label_id === labelId) || (al.labels?.id === labelId))
         ).length;
     };
 
-    // Color mapping for style consistency with Dashboard
-    const getLabelColorClasses = (colorName) => {
-        // Format: [bg, text, border]
-        const map = {
-            rose: ['bg-rose-50', 'text-rose-600', 'border-rose-500'],
-            pink: ['bg-pink-50', 'text-pink-600', 'border-pink-500'],
-            purple: ['bg-purple-50', 'text-purple-600', 'border-purple-500'],
-            indigo: ['bg-indigo-50', 'text-indigo-600', 'border-indigo-500'],
-            blue: ['bg-blue-50', 'text-blue-600', 'border-blue-500'],
-            sky: ['bg-sky-50', 'text-sky-600', 'border-sky-500'],
-            cyan: ['bg-cyan-50', 'text-cyan-600', 'border-cyan-500'],
-            teal: ['bg-teal-50', 'text-teal-600', 'border-teal-500'],
-            emerald: ['bg-emerald-50', 'text-emerald-600', 'border-emerald-500'],
-            green: ['bg-green-50', 'text-green-600', 'border-green-500'],
-            lime: ['bg-lime-50', 'text-lime-600', 'border-lime-500'],
-            yellow: ['bg-yellow-50', 'text-yellow-600', 'border-yellow-500'],
-            amber: ['bg-amber-50', 'text-amber-600', 'border-amber-500'],
-            orange: ['bg-orange-50', 'text-orange-600', 'border-orange-500'],
-            red: ['bg-red-50', 'text-red-600', 'border-red-500'],
-            stone: ['bg-stone-50', 'text-stone-600', 'border-stone-500'],
-            neutral: ['bg-neutral-50', 'text-neutral-600', 'border-neutral-500'],
+    // Icon mapping - convert icon name to component
+    const ICON_MAP = {
+        Tag, Star, Heart, Bookmark, Flag, Zap,
+        Clock, AlertCircle, CheckCircle, Info,
+        TrendingUp, FileText, Users, Briefcase, Archive
+    };
+
+    const getIconComponent = (iconName) => {
+        return ICON_MAP[iconName] || Tag;
+    };
+
+    // Color mapping for modern UI with gradients
+    const getLabelStyles = (colorName) => {
+        // Soft Pastel Color Palette
+        const colorMap = {
+            rose: { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', icon: 'text-rose-600', gradient: 'from-rose-50 to-rose-100', badgeBg: 'bg-rose-200', badgeText: 'text-rose-800' },
+            pink: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200', icon: 'text-pink-600', gradient: 'from-pink-50 to-pink-100', badgeBg: 'bg-pink-200', badgeText: 'text-pink-800' },
+            purple: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', icon: 'text-purple-600', gradient: 'from-purple-50 to-purple-100', badgeBg: 'bg-purple-200', badgeText: 'text-purple-800' },
+            indigo: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200', icon: 'text-indigo-600', gradient: 'from-indigo-50 to-indigo-100', badgeBg: 'bg-indigo-200', badgeText: 'text-indigo-800' },
+            blue: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', icon: 'text-blue-600', gradient: 'from-blue-50 to-blue-100', badgeBg: 'bg-blue-200', badgeText: 'text-blue-800' },
+            sky: { bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-200', icon: 'text-sky-600', gradient: 'from-sky-50 to-sky-100', badgeBg: 'bg-sky-200', badgeText: 'text-sky-800' },
+            cyan: { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-200', icon: 'text-cyan-600', gradient: 'from-cyan-50 to-cyan-100', badgeBg: 'bg-cyan-200', badgeText: 'text-cyan-800' },
+            teal: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200', icon: 'text-teal-600', gradient: 'from-teal-50 to-teal-100', badgeBg: 'bg-teal-200', badgeText: 'text-teal-800' },
+            emerald: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: 'text-emerald-600', gradient: 'from-emerald-50 to-emerald-100', badgeBg: 'bg-emerald-200', badgeText: 'text-emerald-800' },
+            green: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', icon: 'text-green-600', gradient: 'from-green-50 to-green-100', badgeBg: 'bg-green-200', badgeText: 'text-green-800' },
+            lime: { bg: 'bg-lime-100', text: 'text-lime-700', border: 'border-lime-200', icon: 'text-lime-600', gradient: 'from-lime-50 to-lime-100', badgeBg: 'bg-lime-200', badgeText: 'text-lime-800' },
+            yellow: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200', icon: 'text-yellow-600', gradient: 'from-yellow-50 to-yellow-100', badgeBg: 'bg-yellow-200', badgeText: 'text-yellow-800' },
+            amber: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: 'text-amber-600', gradient: 'from-amber-50 to-amber-100', badgeBg: 'bg-amber-200', badgeText: 'text-amber-800' },
+            orange: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', icon: 'text-orange-600', gradient: 'from-orange-50 to-orange-100', badgeBg: 'bg-orange-200', badgeText: 'text-orange-800' },
+            red: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200', icon: 'text-red-600', gradient: 'from-red-50 to-red-100', badgeBg: 'bg-red-200', badgeText: 'text-red-800' },
+            stone: { bg: 'bg-stone-100', text: 'text-stone-700', border: 'border-stone-200', icon: 'text-stone-600', gradient: 'from-stone-50 to-stone-100', badgeBg: 'bg-stone-200', badgeText: 'text-stone-800' },
+            neutral: { bg: 'bg-neutral-100', text: 'text-neutral-700', border: 'border-neutral-200', icon: 'text-neutral-600', gradient: 'from-neutral-50 to-neutral-100', badgeBg: 'bg-neutral-200', badgeText: 'text-neutral-800' },
         };
-        return map[colorName] || ['bg-neutral-50', 'text-neutral-600', 'border-neutral-500'];
+        return colorMap[colorName] || colorMap.neutral;
     };
 
     return (
@@ -82,9 +111,9 @@ export default function LabelDashboard({
 
                     <button
                         onClick={() => setShowLabelManager(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-all shadow-sm hover:shadow-md font-medium"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white border-2 border-primary-300 text-primary-700 rounded-xl hover:bg-primary-50 hover:border-primary-400 transition-all shadow-sm hover:shadow font-semibold"
                     >
-                        <Plus size={18} />
+                        <Tag size={18} />
                         <span>Kelola Label</span>
                     </button>
                 </div>
@@ -92,89 +121,125 @@ export default function LabelDashboard({
 
             {/* Grid Content */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {/* 'All Archives' Card - Matches Dashboard Stat Card with a twist */}
-                {/* 'All Archives' Card */}
+                {/* 'All Archives' Card - Light Purple Theme */}
                 <motion.button
-                    whileHover={{ y: -4 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                        duration: 0.3,
+                        ease: [0.25, 0.1, 0.25, 1]
+                    }}
+                    whileHover={{
+                        y: -4,
+                        transition: { duration: 0.2 }
+                    }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => navigate('arsip', { filterLabel: 'all' })}
-                    className="group relative flex flex-col h-full bg-white rounded-2xl p-6 text-left shadow-sm border border-neutral-200 hover:shadow-md hover:border-neutral-300 transition-all duration-300 overflow-hidden"
+                    onClick={() => navigate('/arsip')}
+                    className="group relative flex flex-col h-[160px] rounded-2xl p-6 text-left bg-primary-50 border border-primary-200 hover:border-primary-300 transition-all duration-200 hover:shadow-md"
                 >
-                    <div className="absolute top-0 left-0 w-full h-1 bg-neutral-900" />
+                    {/* Subtle gradient overlay */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="p-3.5 rounded-2xl bg-neutral-900 text-white shadow-lg shadow-neutral-900/10 group-hover:scale-105 transition-transform duration-300">
-                            <Layers size={24} />
+                    {/* Icon */}
+                    <div className="relative z-10 mb-auto">
+                        <div className="inline-flex p-2.5 rounded-xl bg-white border border-primary-200 transition-all duration-200 group-hover:border-primary-300 text-primary-600">
+                            <Layers size={22} strokeWidth={2} />
                         </div>
-                        <div className="px-3 py-1 rounded-full bg-neutral-100 text-neutral-600 text-xs font-bold font-mono tracking-tight">
-                            TOTAL
-                        </div>
-                    </div>
 
-                    <div className="mt-auto space-y-1">
-                        <h3 className="text-3xl font-display font-bold text-neutral-900 tracking-tight">
+                        {/* Count badge */}
+                        <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center bg-primary-500 text-white text-xs font-bold shadow-sm">
                             {arsipList.length}
-                        </h3>
-                        <p className="text-sm font-medium text-neutral-500">Semua Arsip</p>
+                        </div>
                     </div>
 
-                    <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
-                        <ArrowUpRight size={20} className="text-neutral-400" />
+                    {/* Content */}
+                    <div className="relative z-10 space-y-1">
+                        <h4 className="text-base font-semibold text-primary-900 leading-snug">
+                            Semua Berkas
+                        </h4>
+                        <p className="text-xs text-primary-600">
+                            {arsipList.length} Total
+                        </p>
                     </div>
                 </motion.button>
 
-                {/* Label Cards */}
+                {/* Label Cards - Minimalist Design */}
                 <AnimatePresence>
                     {filteredLabels.map((label, index) => {
                         const count = getLabelStats(label.id);
-                        const [bgClass, textClass, borderClass] = getLabelColorClasses(label.color);
+                        const styles = getLabelStyles(label.color);
+                        const Icon = getIconComponent(label.icon);
 
                         return (
                             <motion.button
                                 key={label.id}
                                 layoutId={label.id}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: index * 0.05 }}
-                                whileHover={{ y: -4 }}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{
+                                    delay: index * 0.03,
+                                    duration: 0.3,
+                                    ease: [0.25, 0.1, 0.25, 1]
+                                }}
+                                whileHover={{
+                                    y: -4,
+                                    transition: { duration: 0.2 }
+                                }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => navigate('arsip', { filterLabel: label.id })}
-                                className="group relative flex flex-col h-full bg-white rounded-2xl p-6 text-left shadow-sm border border-neutral-200 hover:shadow-md hover:border-neutral-300 transition-all duration-300 overflow-hidden"
+                                onClick={() => navigate(`/arsip?label=${label.id}`)}
+                                className={cn(
+                                    "group relative flex flex-col h-[160px] rounded-2xl p-6 text-left",
+                                    "bg-white border transition-all duration-200",
+                                    "hover:shadow-md",
+                                    styles.border
+                                )}
                             >
-                                <div className={cn("absolute top-0 left-0 w-full h-1", borderClass.replace('border-', 'bg-'))} />
-
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className={cn(
-                                        "p-3.5 rounded-2xl transition-transform duration-300 group-hover:scale-105",
-                                        bgClass,
-                                        textClass
-                                    )}>
-                                        <Tag size={24} />
-                                    </div>
-                                    <div className={cn(
-                                        "px-3 py-1 rounded-full text-xs font-bold font-mono tracking-tight",
-                                        bgClass,
-                                        textClass
-                                    )}>
-                                        {count} File
-                                    </div>
-                                </div>
-
-                                <div className="mt-auto space-y-1">
-                                    <h3
-                                        className="text-lg font-bold text-neutral-900 line-clamp-2 leading-tight group-hover:text-primary-600 transition-colors"
-                                        title={label.name}
-                                    >
-                                        {label.name}
-                                    </h3>
-                                    {/* ID Removed as requested */}
-                                </div>
-
-                                {/* Subtle decorative background blob */}
+                                {/* Subtle gradient on hover */}
                                 <div className={cn(
-                                    "absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-[0.08] blur-3xl transition-transform duration-500 group-hover:scale-125",
-                                    bgClass.replace('bg-', '') === 'bg-white' ? 'bg-neutral-200' : bgClass.replace('bg-', 'bg-') // Simplified color derivation
-                                )} />
+                                    "absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                                    styles.bg
+                                )}
+                                    style={{ opacity: 0.03 }}
+                                />
+
+                                {/* Icon */}
+                                <div className="relative z-10 mb-auto">
+                                    <div className={cn(
+                                        "inline-flex p-2.5 rounded-xl transition-all duration-200",
+                                        "bg-white border",
+                                        "group-hover:border-current",
+                                        styles.border,
+                                        styles.icon
+                                    )}>
+                                        <Icon size={22} strokeWidth={2} />
+                                    </div>
+
+                                    {/* Badge with light background matching label color */}
+                                    {count > 0 && (
+                                        <div className={cn(
+                                            "absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold shadow-md",
+                                            styles.badgeBg,
+                                            styles.badgeText
+                                        )}>
+                                            {count}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="relative z-10 space-y-1">
+                                    <h4 className={cn(
+                                        "text-base font-semibold line-clamp-2 leading-snug",
+                                        styles.text
+                                    )}
+                                        title={label.name}>
+                                        {label.name}
+                                    </h4>
+
+                                    <p className="text-xs text-neutral-500">
+                                        {count} Berkas
+                                    </p>
+                                </div>
                             </motion.button>
                         );
                     })}
@@ -197,9 +262,6 @@ export default function LabelDashboard({
 
             {/* Modal */}
             <Modal isOpen={showLabelManager} onClose={() => setShowLabelManager(false)} size="lg">
-                <ModalHeader onClose={() => setShowLabelManager(false)}>
-                    <ModalTitle>Kelola Label</ModalTitle>
-                </ModalHeader>
                 <ModalContent>
                     <LabelManager
                         supabase={supabase}

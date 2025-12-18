@@ -5,11 +5,9 @@ import CommandPalette from './CommandPalette';
 import { Toaster } from 'react-hot-toast';
 import { cn } from '../utils/cn';
 
-export default function Layout({ 
-  children, 
-  currentView, 
-  onNavigate, 
-  user, 
+export default function Layout({
+  children,
+  user,
   onLogout,
   title = "Dashboard",
   arsipList = [],
@@ -19,39 +17,21 @@ export default function Layout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
-  // Keyboard shortcut removed as per request
-  /*
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowCommandPalette(prev => !prev);
-      }
-    };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-  */
 
   return (
     <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 selection:bg-primary-100 selection:text-primary-900">
       {/* Sidebar */}
-      <Sidebar 
+      <Sidebar
         collapsed={sidebarCollapsed}
         mobileOpen={mobileMenuOpen}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onMobileClose={() => setMobileMenuOpen(false)}
-        currentView={currentView}
-        onNavigate={(view) => {
-          onNavigate(view);
-          setMobileMenuOpen(false);
-        }}
-        onShowInfo={() => {}} // Handle info modal trigger
+        onShowInfo={() => { }} // Handle info modal trigger
       />
 
       {/* Main Content Area */}
-      <div 
+      <div
         className={cn(
           "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
           "ml-0", // Mobile: no margin
@@ -59,7 +39,7 @@ export default function Layout({
         )}
       >
         {/* Header */}
-        <Header 
+        <Header
           title={title}
           onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           isSidebarCollapsed={sidebarCollapsed}
@@ -77,15 +57,14 @@ export default function Layout({
       </div>
 
       {/* Overlays */}
-      <CommandPalette 
-        isOpen={showCommandPalette} 
+      <CommandPalette
+        isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
-        navigate={onNavigate}
         arsipList={arsipList}
         setSelectedArsipDetail={setSelectedArsipDetail}
       />
-      
-      <Toaster 
+
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,

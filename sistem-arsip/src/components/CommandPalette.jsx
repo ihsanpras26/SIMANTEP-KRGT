@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Command, FileText, FolderKanban, Plus, Settings, LogOut, X, ArrowRight, Archive } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 export default function CommandPalette({
   isOpen,
   onClose,
-  navigate,
   actions = [],
   arsipList = [],
   setSelectedArsipDetail
@@ -13,13 +13,14 @@ export default function CommandPalette({
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
+  const navigate = useNavigate();
 
   // Default actions
   const defaultActions = [
-    { id: 'new-arsip', label: 'Tambah Arsip Baru', icon: Plus, action: () => navigate('tambah') },
-    { id: 'dashboard', label: 'Go to Dashboard', icon: Command, action: () => navigate('dashboard') },
-    { id: 'all-arsip', label: 'Lihat Semua Arsip', icon: FileText, action: () => navigate('semua') },
-    { id: 'klasifikasi', label: 'Kelola Klasifikasi', icon: FolderKanban, action: () => navigate('klasifikasi') },
+    { id: 'new-arsip', label: 'Tambah Arsip Baru', icon: Plus, action: () => navigate('/arsip/tambah') },
+    { id: 'dashboard', label: 'Go to Dashboard', icon: Command, action: () => navigate('/') },
+    { id: 'all-arsip', label: 'Lihat Semua Arsip', icon: FileText, action: () => navigate('/semua-arsip') },
+    { id: 'klasifikasi', label: 'Kelola Klasifikasi', icon: FolderKanban, action: () => navigate('/klasifikasi') },
   ];
 
   // Filtered items
@@ -44,6 +45,7 @@ export default function CommandPalette({
       icon: Archive,
       action: () => {
         if (setSelectedArsipDetail) setSelectedArsipDetail(arsip);
+        navigate('/arsip/detail');
       }
     }));
 

@@ -1,27 +1,45 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Tag, Check, Palette } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Tag, Check, Palette, Pencil, Star, Heart, Bookmark, Flag, Zap, Clock, AlertCircle, CheckCircle, Info, TrendingUp, FileText, Users, Briefcase, Archive, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 import useAppStore from '../store/useAppStore';
 
 const COLORS = [
-    { name: 'rose', hex: '#e11d48' },
-    { name: 'pink', hex: '#db2777' },
-    { name: 'purple', hex: '#9333ea' },
-    { name: 'indigo', hex: '#4f46e5' },
-    { name: 'blue', hex: '#2563eb' },
-    { name: 'sky', hex: '#0284c7' },
-    { name: 'cyan', hex: '#0891b2' },
-    { name: 'teal', hex: '#0d9488' },
-    { name: 'emerald', hex: '#059669' },
-    { name: 'green', hex: '#16a34a' },
-    { name: 'lime', hex: '#65a30d' },
-    { name: 'yellow', hex: '#ca8a04' },
-    { name: 'amber', hex: '#d97706' },
-    { name: 'orange', hex: '#ea580c' },
-    { name: 'red', hex: '#dc2626' },
-    { name: 'stone', hex: '#57534e' },
-    { name: 'neutral', hex: '#525252' }
+    { name: 'rose', hex: '#fda4af' },
+    { name: 'pink', hex: '#f9a8d4' },
+    { name: 'purple', hex: '#d8b4fe' },
+    { name: 'indigo', hex: '#a5b4fc' },
+    { name: 'blue', hex: '#93c5fd' },
+    { name: 'sky', hex: '#7dd3fc' },
+    { name: 'cyan', hex: '#67e8f9' },
+    { name: 'teal', hex: '#5eead4' },
+    { name: 'emerald', hex: '#6ee7b7' },
+    { name: 'green', hex: '#86efac' },
+    { name: 'lime', hex: '#bef264' },
+    { name: 'yellow', hex: '#fde047' },
+    { name: 'amber', hex: '#fcd34d' },
+    { name: 'orange', hex: '#fdba74' },
+    { name: 'red', hex: '#fca5a5' },
+    { name: 'stone', hex: '#d6d3d1' },
+    { name: 'neutral', hex: '#d4d4d4' }
+];
+
+const ICONS = [
+    { name: 'Tag', component: Tag },
+    { name: 'Star', component: Star },
+    { name: 'Heart', component: Heart },
+    { name: 'Bookmark', component: Bookmark },
+    { name: 'Flag', component: Flag },
+    { name: 'Zap', component: Zap },
+    { name: 'Clock', component: Clock },
+    { name: 'AlertCircle', component: AlertCircle },
+    { name: 'CheckCircle', component: CheckCircle },
+    { name: 'Info', component: Info },
+    { name: 'TrendingUp', component: TrendingUp },
+    { name: 'FileText', component: FileText },
+    { name: 'Users', component: Users },
+    { name: 'Briefcase', component: Briefcase },
+    { name: 'Archive', component: Archive }
 ];
 
 export default function LabelManager({ supabase, onClose, showNotification }) {
@@ -32,58 +50,112 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
         rollbackLabelOptimistic,
         deleteLabelOptimistic,
         confirmLabelDelete,
-        rollbackLabelDelete
+        rollbackLabelDelete,
+        updateLabelOptimistic,
+        confirmLabelUpdate,
+        rollbackLabelUpdate
     } = useAppStore();
 
     const [newLabelName, setNewLabelName] = useState('');
     const [selectedColor, setSelectedColor] = useState('blue');
+    const [selectedIcon, setSelectedIcon] = useState('Tag');
     const [isAdding, setIsAdding] = useState(false);
+    const [editingLabel, setEditingLabel] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const handleAddLabel = async (e) => {
+    // Populate form when editing
+    useEffect(() => {
+        if (editingLabel) {
+            setNewLabelName(editingLabel.name);
+            setSelectedColor(editingLabel.color);
+            setSelectedIcon(editingLabel.icon || 'Tag');
+            setIsAdding(true);
+        }
+    }, [editingLabel]);
+
+    // Reset when closing form
+    useEffect(() => {
+        if (!isAdding) {
+            setEditingLabel(null);
+            setNewLabelName('');
+            setSelectedColor('blue');
+            setSelectedIcon('Tag');
+        }
+    }, [isAdding]);
+
+    const handleSubmitLabel = async (e) => {
         e.preventDefault();
         if (!newLabelName.trim()) return;
 
-        // Check duplicate
-        if (labels.some(l => l.name.toLowerCase() === newLabelName.trim().toLowerCase())) {
+        // Check duplicate (exclude current if editing)
+        const isDuplicate = labels.some(l =>
+            l.name.toLowerCase() === newLabelName.trim().toLowerCase() &&
+            l.id !== editingLabel?.id
+        );
+
+        if (isDuplicate) {
             showNotification('Nama label sudah ada', 'error');
             return;
         }
 
         setLoading(true);
-        const newLabel = {
+        const payload = {
             name: newLabelName.trim(),
             color: selectedColor,
-            created_at: new Date().toISOString()
+            icon: selectedIcon
         };
 
-        const tempId = addLabelOptimistic(newLabel); // Optimistic Update
-
         try {
-            const { data, error } = await supabase
-                .from('labels')
-                .insert([{ name: newLabel.name, color: newLabel.color }])
-                .select()
-                .single();
+            if (editingLabel) {
+                // UPDATE
+                updateLabelOptimistic(editingLabel.id, payload);
 
-            if (error) throw error;
-            confirmLabelOptimistic(tempId, data);
-            showNotification('Label berhasil dibuat');
-            setNewLabelName('');
+                const { error } = await supabase
+                    .from('labels')
+                    .update(payload)
+                    .eq('id', editingLabel.id);
+
+                if (error) throw error;
+                confirmLabelUpdate(editingLabel.id, { ...editingLabel, ...payload });
+                showNotification('Label berhasil diperbarui');
+            } else {
+                // INSERT
+                const newLabel = {
+                    ...payload,
+                    created_at: new Date().toISOString()
+                };
+                const tempId = addLabelOptimistic(newLabel);
+
+                const { data, error } = await supabase
+                    .from('labels')
+                    .insert([payload])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                confirmLabelOptimistic(tempId, data);
+                showNotification('Label berhasil dibuat');
+            }
+
             setIsAdding(false);
+            setNewLabelName('');
+            setEditingLabel(null);
         } catch (error) {
-            console.error('Error adding label:', error);
+            console.error('Error saving label:', error);
             showNotification(error.message, 'error');
-            rollbackLabelOptimistic(tempId);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleEditClick = (label) => {
+        setEditingLabel(label);
+    };
+
     const handleDeleteLabel = async (id) => {
         if (!window.confirm('Hapus label ini? Label akan dihapus dari semua arsip terkait.')) return;
 
-        const originalData = deleteLabelOptimistic(id); // Optimistic Delete
+        const originalData = deleteLabelOptimistic(id);
 
         try {
             const { error } = await supabase
@@ -102,56 +174,64 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
     };
 
     return (
-        <div className="w-full">
-            <div className="flex justify-between items-center mb-6">
-                {/* Simplified Header - removed generic text */}
-                <h3 className="text-lg font-bold text-neutral-900">Daftar Label</h3>
-
-                {!isAdding && (
+        <div className="w-full max-w-2xl mx-auto">
+            {/* Modern Header */}
+            <div className="mb-8">
+                <div className="flex items-start justify-between mb-3">
+                    <div>
+                        <h2 className="text-2xl font-bold text-neutral-900">Kelola Label</h2>
+                        <p className="text-sm text-neutral-500 mt-1">Buat dan atur label untuk mengorganisir arsip Anda</p>
+                    </div>
                     <button
-                        onClick={() => setIsAdding(true)}
-                        className="flex items-center gap-2 text-sm font-medium bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition-all shadow-sm"
+                        onClick={onClose}
+                        className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-all"
                     >
-                        <Plus size={16} />
-                        Tambah
+                        <X size={20} />
                     </button>
-                )}
+                </div>
             </div>
 
+            {/* Add/Edit Form */}
             <AnimatePresence>
                 {isAdding && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden mb-6"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="mb-6"
                     >
                         <form
-                            className="bg-neutral-50 p-4 rounded-xl border border-neutral-200"
-                            onSubmit={handleAddLabel}
+                            className="bg-gradient-to-br from-neutral-50 to-white p-6 rounded-2xl border border-neutral-200 shadow-sm"
+                            onSubmit={handleSubmitLabel}
                         >
-                            <div className="space-y-4">
+                            <h3 className="text-sm font-semibold text-neutral-700 mb-4">
+                                {editingLabel ? 'Edit Label' : 'Label Baru'}
+                            </h3>
+
+                            <div className="space-y-5">
+                                {/* Name Input */}
                                 <div>
-                                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
+                                    <label className="block text-xs font-medium text-neutral-600 mb-2">
                                         Nama Label
                                     </label>
                                     <input
                                         type="text"
                                         value={newLabelName}
                                         onChange={(e) => setNewLabelName(e.target.value)}
-                                        placeholder="Nama Label..."
-                                        className="block w-full px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-neutral-400"
+                                        placeholder="Contoh: Magang 2025"
+                                        className="block w-full px-4 py-2.5 bg-white border border-neutral-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none transition-all placeholder-neutral-400"
                                         autoFocus
                                         disabled={loading}
                                     />
                                 </div>
 
+                                {/* Color Picker */}
                                 <div>
-                                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                                        <Palette size={12} />
-                                        Warna
+                                    <label className="block text-xs font-medium text-neutral-600 mb-3 flex items-center gap-1.5">
+                                        <Palette size={14} />
+                                        Pilih Warna
                                     </label>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-2.5">
                                         {COLORS.map((c) => (
                                             <button
                                                 key={c.name}
@@ -159,37 +239,67 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
                                                 onClick={() => setSelectedColor(c.name)}
                                                 style={{ backgroundColor: c.hex }}
                                                 className={cn(
-                                                    "w-6 h-6 rounded-full transition-all relative flex items-center justify-center shadow-sm border border-black/5",
+                                                    "w-9 h-9 rounded-xl transition-all relative flex items-center justify-center shadow-sm border-2",
                                                     selectedColor === c.name
-                                                        ? "ring-2 ring-offset-2 ring-neutral-900 scale-110"
-                                                        : "hover:scale-110"
+                                                        ? "border-neutral-900 scale-110 shadow-md"
+                                                        : "border-white/50 hover:scale-105 hover:shadow"
                                                 )}
                                                 title={c.name}
                                             >
                                                 {selectedColor === c.name && (
-                                                    <Check size={12} className="text-white drop-shadow-sm" strokeWidth={3} />
+                                                    <Check size={16} className="text-neutral-900 drop-shadow" strokeWidth={3} />
                                                 )}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Icon Picker */}
+                                <div>
+                                    <label className="block text-xs font-medium text-neutral-600 mb-3 flex items-center gap-1.5">
+                                        <Tag size={14} />
+                                        Pilih Icon
+                                    </label>
+                                    <div className="grid grid-cols-8 gap-2">
+                                        {ICONS.map((icon) => {
+                                            const IconComponent = icon.component;
+                                            return (
+                                                <button
+                                                    key={icon.name}
+                                                    type="button"
+                                                    onClick={() => setSelectedIcon(icon.name)}
+                                                    className={cn(
+                                                        "p-3 rounded-xl border-2 transition-all flex items-center justify-center",
+                                                        selectedIcon === icon.name
+                                                            ? "bg-primary-50 border-primary-400 text-primary-700 shadow-sm"
+                                                            : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300"
+                                                    )}
+                                                    title={icon.name}
+                                                >
+                                                    <IconComponent size={18} strokeWidth={2} />
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-neutral-200">
+                            {/* Action Buttons */}
+                            <div className="flex justify-end gap-2 mt-6 pt-5 border-t border-neutral-200">
                                 <button
                                     type="button"
                                     onClick={() => setIsAdding(false)}
-                                    className="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-200 rounded-lg transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 rounded-xl transition-all"
                                     disabled={loading}
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-3 py-1.5 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-sm disabled:opacity-70"
+                                    className="px-5 py-2 text-sm font-semibold bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
                                     disabled={loading || !newLabelName.trim()}
                                 >
-                                    {loading ? 'Simpan...' : 'Simpan'}
+                                    {loading ? 'Menyimpan...' : editingLabel ? 'Update Label' : 'Buat Label'}
                                 </button>
                             </div>
                         </form>
@@ -197,44 +307,75 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
                 )}
             </AnimatePresence>
 
-            <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+            {/* Add Button (when not editing) */}
+            {!isAdding && (
+                <button
+                    onClick={() => setIsAdding(true)}
+                    className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-dashed border-neutral-300 text-neutral-600 rounded-xl hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50/50 transition-all font-medium"
+                >
+                    <Plus size={20} />
+                    <span>Tambah Label Baru</span>
+                </button>
+            )}
+
+            {/* Label Cards List */}
+            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                 {labels.length === 0 ? (
-                    <div className="text-center py-8 text-neutral-400">
-                        <Tag size={24} className="mx-auto mb-2 opacity-20" />
-                        <p className="text-sm">Belum ada label.</p>
+                    <div className="text-center py-12">
+                        <div className="inline-flex p-4 rounded-full bg-neutral-100 mb-3">
+                            <Tag size={32} className="text-neutral-400" />
+                        </div>
+                        <p className="text-sm text-neutral-500">Belum ada label</p>
+                        <p className="text-xs text-neutral-400 mt-1">Klik tombol di atas untuk membuat label pertama</p>
                     </div>
                 ) : (
                     labels.map(label => {
-                        const styleColor = COLORS.find(c => c.name === label.color)?.hex || label.color;
+                        const colorHex = COLORS.find(c => c.name === label.color)?.hex || '#d4d4d4';
+                        const IconComponent = ICONS.find(i => i.name === label.icon)?.component || Tag;
+
                         return (
                             <motion.div
                                 layout
                                 key={label.id}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="group flex items-center justify-between p-3 bg-white border border-neutral-100 rounded-xl hover:border-neutral-300 transition-all"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="group relative flex items-center gap-4 p-4 bg-white border-2 border-neutral-200 rounded-xl hover:border-neutral-300 hover:shadow-sm transition-all"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm border"
-                                        style={{
-                                            backgroundColor: `${styleColor}20`,
-                                            color: styleColor,
-                                            borderColor: `${styleColor}40`
-                                        }}
-                                    >
-                                        <Tag size={14} />
-                                    </div>
-                                    <span className="font-medium text-neutral-700 text-sm">{label.name}</span>
+                                {/* Label Preview */}
+                                <div
+                                    className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border-2"
+                                    style={{
+                                        backgroundColor: `${colorHex}40`,
+                                        borderColor: `${colorHex}`,
+                                        color: '#000'
+                                    }}
+                                >
+                                    <IconComponent size={20} strokeWidth={2.5} />
                                 </div>
 
-                                <button
-                                    onClick={() => handleDeleteLabel(label.id)}
-                                    className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Hapus Label"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {/* Label Info */}
+                                <div className="flex-grow min-w-0">
+                                    <h4 className="font-semibold text-neutral-900 text-sm truncate">{label.name}</h4>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => handleEditClick(label)}
+                                        className="p-2 text-neutral-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                                        title="Edit"
+                                    >
+                                        <Pencil size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteLabel(label.id)}
+                                        className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                        title="Hapus"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </motion.div>
                         );
                     })

@@ -1,9 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { createClient } from '@supabase/supabase-js'; // Keeping import to avoid breaking if used elsewhere (wait, I extracted it).
+// Actually, I should remove it if unused.
+// But `App.jsx` imported it.
+// Checking downstream usage...
+// I am replacing usage with imported `supabase` object.
+// So I can remove `createClient` import if I want.
+// But let's check if I can just remove the line.
 import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAppStore from './store/useAppStore';
 import { getArsipStatus } from './utils/statusUtils';
+import { supabase } from './utils/supabaseClient';
+import { useArsip } from './hooks/useArsip';
+import { useKlasifikasi } from './hooks/useKlasifikasi';
+import { useLabels } from './hooks/useLabels';
 
 // Layout & Components
 import Layout from './components/Layout';
@@ -24,24 +35,13 @@ import { Modal, ModalHeader, ModalTitle, ModalContent } from './components/ui';
 // Styles
 import './animations.css';
 
-// --- Konfigurasi Supabase ---
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-let supabase = null;
-const isValidConfig = supabaseUrl && supabaseAnonKey &&
-    !supabaseUrl.includes('your_supabase_project_url_here') &&
-    !supabaseAnonKey.includes('your_supabase_anon_key_here');
-
-if (isValidConfig) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-    console.error('Missing or invalid Supabase configuration. Please check your .env file.');
-}
+// --- Konfigurasi Supabase Moved to utils/supabaseClient.js ---
 
 export default function App() {
     // --- State Management ---
-    const [currentView, setCurrentView] = useState('dashboard');
+    // const [currentView, setCurrentView] = useState('dashboard'); // Removed for Router
+    const navigate = useNavigate();
+    const location = useLocation();
     const [session, setSession] = useState(null);
     const [initialFilter, setInitialFilter] = useState('all');
 
@@ -56,6 +56,35 @@ export default function App() {
         setLabels,
         setIsLoading: setStoreLoading
     } = useAppStore();
+
+    // React Query Hooks
+    // React Query Hooks
+    // App needs ALL data for stats (page: 'all')
+    const { data: arsipData, isLoading: arsipLoading } = useArsip({ page: 'all', pageSize: 10000 });
+    const { data: klasifikasiData, isLoading: klasifikasiLoading } = useKlasifikasi();
+    const { data: labelsData, isLoading: labelsLoading } = useLabels();
+
+    // Sync Query Data to Store (Bridge for Transition)
+    useEffect(() => {
+        // useArsip now returns { data, count } for pagination
+        // We sync only the data array to the store for now to prevent crashes.
+        // NOTE: This means 'arsipList' in store only has the current page's data.
+        // Dashboard stats will be incorrect until we implement a separate 'useArsipStats' hook.
+        if (arsipData?.data) setArsipList(arsipData.data);
+        else if (Array.isArray(arsipData)) setArsipList(arsipData); // Fallback if structure changes back
+    }, [arsipData, setArsipList]);
+
+    useEffect(() => {
+        if (klasifikasiData) setKlasifikasiList(klasifikasiData);
+    }, [klasifikasiData, setKlasifikasiList]);
+
+    useEffect(() => {
+        if (labelsData) setLabels(labelsData);
+    }, [labelsData, setLabels]);
+
+    useEffect(() => {
+        setStoreLoading(arsipLoading || klasifikasiLoading || labelsLoading);
+    }, [arsipLoading, klasifikasiLoading, labelsLoading, setStoreLoading]);
 
     // Modal & Edit States
     const [editingArsip, setEditingArsip] = useState(null);
@@ -76,73 +105,6 @@ export default function App() {
         // Auth Session
         supabase.auth.getSession().then(({ data }) => setSession(data?.session || null));
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, currentSession) => setSession(currentSession));
-
-        // Initial Data Fetch
-        const fetchData = async () => {
-            setStoreLoading(true);
-
-            // Fetch Arsip with labels
-            const { data: arsipData, error: arsipError } = await supabase
-                .from('arsip')
-                .select('*, arsip_labels(labels(*))')
-                .order('tanggalSurat', { ascending: false });
-
-            if (arsipError) {
-                console.error("Error fetching arsip:", arsipError);
-                toast.error(`Gagal memuat data arsip: ${arsipError.message}`);
-            } else {
-                setArsipList(arsipData || []);
-            }
-
-            // Fetch Klasifikasi (with pagination for large datasets)
-            const PAGE_SIZE = 1000;
-            let allKlasifikasi = [];
-            let from = 0;
-            let hasMore = true;
-
-            while (hasMore) {
-                const to = from + PAGE_SIZE - 1;
-                const { data: pageData, error: pageError } = await supabase
-                    .from('klasifikasi')
-                    .select('*')
-                    .order('kode', { ascending: true })
-                    .range(from, to);
-
-                if (pageError) {
-                    console.error("Error fetching klasifikasi:", pageError);
-                    toast.error(`Gagal memuat data klasifikasi: ${pageError.message}`);
-                    break;
-                }
-
-                allKlasifikasi = allKlasifikasi.concat(pageData || []);
-                if (!pageData || pageData.length < PAGE_SIZE) {
-                    hasMore = false;
-                } else {
-                    from += PAGE_SIZE;
-                }
-            }
-
-            const sorted = (allKlasifikasi || []).slice().sort((a, b) =>
-                a.kode.localeCompare(b.kode, undefined, { numeric: true })
-            );
-            setKlasifikasiList(sorted);
-
-            // Fetch Labels
-            const { data: labelsData, error: labelsError } = await supabase
-                .from('labels')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (labelsError) {
-                console.error("Error fetching labels:", labelsError);
-            } else {
-                setLabels(labelsData || []);
-            }
-
-            setStoreLoading(false);
-        };
-
-        fetchData();
 
         // Realtime Subscriptions
         const arsipChannel = supabase.channel('public:arsip')
@@ -330,85 +292,25 @@ export default function App() {
         setDeleteConfirmModal({ show: false, id: null, message: '', onConfirm: null });
     };
 
-    const navigate = (view, filter = 'all') => {
-        setCurrentView(view);
-        setInitialFilter(filter);
-        if (view !== 'tambah') setEditingArsip(null);
-        if (view !== 'klasifikasi') setEditingKlasifikasi(null);
-    };
-
     const handleArsipSelect = (item) => {
         setSelectedArsipDetail(item);
-        navigate('arsip-detail');
+        navigate('/arsip/detail');
     };
 
     // --- Render Helpers ---
-    const getPageTitle = () => {
-        switch (currentView) {
-            case 'dashboard': return 'Dashboard';
-            case 'tambah': return 'Tambah Arsip';
-            case 'semua': return 'Semua Arsip';
-            case 'arsip': return 'Daftar Arsip';
-            case 'label': return 'Label & Kategori';
-            case 'klasifikasi': return 'Kode Klasifikasi';
-            default: return 'Sistem Arsip';
-        }
-    };
-
-    const renderView = () => {
-        const props = {
-            supabase,
-            klasifikasiList,
-            setEditingArsip,
-            editingKlasifikasi,
-            setEditingKlasifikasi,
-            navigate,
-            arsipList,
-            activeArchives,
-            inactiveArchives,
-            showNotification: (msg, type) => type === 'error' ? toast.error(msg) : toast.success(msg),
-            setDeleteConfirmModal,
-            setSelectedArsipDetail: handleArsipSelect
-        };
-
-        switch (currentView) {
-            case 'tambah':
-                return <ArsipForm
-                    {...props}
-                    arsipToEdit={editingArsip}
-                    arsipList={arsipList}
-                    labels={labels}
-                    onFinish={() => navigate('dashboard')}
-                />;
-            case 'label':
-                return <LabelDashboard
-                    {...props}
-                    navigate={navigate}
-                />;
-            case 'klasifikasi':
-                return <KlasifikasiManager {...props} openModal={() => setShowKlasifikasiModal(true)} />;
-            case 'semua':
-                return <ArsipList {...props} title="Semua Arsip" arsipList={arsipList} setEditingArsip={(a) => { setEditingArsip(a); navigate('tambah'); }} listType="semua" initialFilter={initialFilter} />;
-            case 'arsip':
-                return <ArsipList {...props} title="Daftar Arsip" arsipList={arsipList} setEditingArsip={(a) => { setEditingArsip(a); navigate('tambah'); }} listType="arsip" initialFilter={initialFilter} />;
-            case 'arsip-detail':
-                return <ArsipDetail arsip={selectedArsipDetail} onBack={() => navigate('arsip')} klasifikasiList={klasifikasiList} />;
-            default:
-                return <Dashboard
-                    {...props}
-                    stats={{
-                        total: arsipList.length,
-                        active: activeArchives.length,
-                        inactive: inactiveArchives.length
-                    }}
-                    trends={statsTrends}
-                    archivesByYear={archivesByYear}
-                />;
-        }
+    const getPageTitle = (pathname) => {
+        if (pathname === '/') return 'Dashboard';
+        if (pathname === '/arsip/tambah') return 'Tambah Arsip';
+        if (pathname === '/semua-arsip') return 'Semua Arsip';
+        if (pathname === '/arsip') return 'Daftar Arsip';
+        if (pathname === '/label') return 'Label & Kategori';
+        if (pathname === '/klasifikasi') return 'Kode Klasifikasi';
+        if (pathname === '/arsip/detail') return 'Detail Arsip';
+        return 'Sistem Arsip';
     };
 
     // --- Main Render ---
-    if (!isValidConfig) return <ConfigurationMessage />;
+    if (!supabase) return <ConfigurationMessage />;
 
     if (!session) {
         return (
@@ -432,17 +334,67 @@ export default function App() {
         );
     }
 
+    const commonProps = {
+        supabase,
+        setEditingArsip,
+        editingKlasifikasi,
+        setEditingKlasifikasi,
+        navigate,
+        activeArchives,
+        inactiveArchives,
+        showNotification: (msg, type) => type === 'error' ? toast.error(msg) : toast.success(msg),
+        setDeleteConfirmModal,
+        setSelectedArsipDetail: handleArsipSelect
+    };
+
     return (
         <Layout
-            currentView={currentView}
-            onNavigate={navigate}
             user={session.user}
             onLogout={handleLogout}
-            title={getPageTitle()}
+            title={getPageTitle(location.pathname)}
             arsipList={arsipList}
             setSelectedArsipDetail={handleArsipSelect}
         >
-            {renderView()}
+            <Routes>
+                <Route path="/" element={
+                    <Dashboard
+                        {...commonProps}
+                        stats={{
+                            total: arsipList.length,
+                            active: activeArchives.length,
+                            inactive: inactiveArchives.length
+                        }}
+                        trends={statsTrends}
+                        archivesByYear={archivesByYear}
+                    />
+                } />
+                <Route path="/arsip/tambah" element={
+                    <ArsipForm
+                        {...commonProps}
+                        arsipToEdit={editingArsip}
+                        onFinish={() => navigate('/')}
+                    />
+                } />
+                <Route path="/label" element={
+                    <LabelDashboard
+                        {...commonProps}
+                        navigate={navigate}
+                    />
+                } />
+                <Route path="/klasifikasi" element={
+                    <KlasifikasiManager {...commonProps} openModal={() => setShowKlasifikasiModal(true)} />
+                } />
+                <Route path="/semua-arsip" element={
+                    <ArsipList {...commonProps} title="Semua Arsip" setEditingArsip={(a) => { setEditingArsip(a); navigate('/arsip/tambah'); }} listType="semua" initialFilter={initialFilter} />
+                } />
+                <Route path="/arsip" element={
+                    <ArsipList {...commonProps} title="Daftar Arsip" setEditingArsip={(a) => { setEditingArsip(a); navigate('/arsip/tambah'); }} listType="arsip" initialFilter={initialFilter} />
+                } />
+                <Route path="/arsip/detail" element={
+                    <ArsipDetail arsip={selectedArsipDetail} onBack={() => navigate('/arsip')} klasifikasiList={klasifikasiList} />
+                } />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
 
             {/* Modals & Overlays */}
             <AnimatePresence>
