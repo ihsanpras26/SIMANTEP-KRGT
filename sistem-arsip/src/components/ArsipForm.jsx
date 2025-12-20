@@ -9,7 +9,11 @@ import {
   Calendar,
   Tag,
   Plus,
-  Check
+  Check,
+  ChevronDown,
+  Sparkles,
+  Users,
+  Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -36,6 +40,7 @@ export default function ArsipForm({
   const arsipList = arsipData?.data || [];
   const klasifikasiList = klasifikasiData || [];
   const labels = labelsData || [];
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nomorSurat: '',
@@ -47,14 +52,94 @@ export default function ArsipForm({
   });
   const [tujuanList, setTujuanList] = useState([]);
   const [tujuanInput, setTujuanInput] = useState('');
-  const [selectedLabelIds, setSelectedLabelIds] = useState([]); // Array of IDs
+  const [selectedLabelIds, setSelectedLabelIds] = useState([]);
   const [showLabelDropdown, setShowLabelDropdown] = useState(false);
   const [labelSearch, setLabelSearch] = useState('');
+  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
+  const [autoDetected, setAutoDetected] = useState(false);
+  const [detectedInfo, setDetectedInfo] = useState(null);
 
   const [errors, setErrors] = useState({});
-  const [uploadProgress, setUploadProgress] = useState(0);
-
   const labelDropdownRef = useRef(null);
+
+  // Auto-detection helper functions
+  const parseNomorSurat = (nomorSurat) => {
+    if (!nomorSurat || !nomorSurat.trim()) return null;
+
+    // Split by / and get parts
+    const parts = nomorSurat.split('/').map(p => p.trim());
+
+    if (parts.length === 0) return null;
+
+    // Extract kode klasifikasi (first part)
+    const kodeKlasifikasi = parts[0].toUpperCase();
+
+    return {
+      kodeKlasifikasi,
+      nomorAgenda: parts[1] || null,
+      nomorInstansi: parts[2] || null
+    };
+  };
+
+  const findMatchingKlasifikasi = (kode) => {
+    if (!kode || klasifikasiList.length === 0) return null;
+
+    // 1. Exact match (case-insensitive)
+    const exactMatch = klasifikasiList.find(
+      k => k.kode.toUpperCase() === kode
+    );
+    if (exactMatch) return exactMatch;
+
+    // 2. Prefix match
+    const prefixMatch = klasifikasiList.find(
+      k => k.kode.toUpperCase().startsWith(kode)
+    );
+    if (prefixMatch) return prefixMatch;
+
+    // 3. Contains match
+    const containsMatch = klasifikasiList.find(
+      k => k.kode.toUpperCase().includes(kode)
+    );
+
+    return containsMatch || null;
+  };
+
+  const handleNomorSuratChange = (value) => {
+    setFormData(prev => ({ ...prev, nomorSurat: value }));
+
+    // Parse nomor surat
+    const parsed = parseNomorSurat(value);
+
+    if (parsed && parsed.kodeKlasifikasi) {
+      // Find matching klasifikasi
+      const match = findMatchingKlasifikasi(parsed.kodeKlasifikasi);
+
+      if (match) {
+        // Auto-fill kode klasifikasi
+        setFormData(prev => ({
+          ...prev,
+          kodeKlasifikasi: match.kode
+        }));
+
+        setAutoDetected(true);
+        setDetectedInfo({
+          kode: match.kode,
+          deskripsi: match.deskripsi
+        });
+
+        toast.success(`✓ Kode klasifikasi terdeteksi: ${match.kode}`, {
+          duration: 3000,
+          icon: '🎯'
+        });
+      } else {
+        setAutoDetected(false);
+        setDetectedInfo(null);
+      }
+    } else {
+      setAutoDetected(false);
+      setDetectedInfo(null);
+    }
+  };
 
   // Initialize form if editing
   useEffect(() => {
@@ -65,19 +150,23 @@ export default function ArsipForm({
         tanggalSurat: arsipToEdit.tanggalSurat ? arsipToEdit.tanggalSurat.split('T')[0] : new Date().toISOString().split('T')[0],
         kodeKlasifikasi: arsipToEdit.kodeKlasifikasi || '',
         pengirim: arsipToEdit.pengirim || '',
-        googleDriveLink: arsipToEdit.googleDriveLink || ''
+        googleDriveLink: arsipToEdit.googleDriveLink || '',
+        keterangan: arsipToEdit.keterangan || ''
       });
 
       if (arsipToEdit.tujuanSurat) {
         setTujuanList(arsipToEdit.tujuanSurat.split('; ').filter(Boolean));
-      } else if (arsipToEdit.tujuan) {
-        // Fallback if legacy object has 'tujuan'
-        setTujuanList(arsipToEdit.tujuan.split('; ').filter(Boolean));
       }
+
       // Initialize labels
       if (arsipToEdit.arsip_labels) {
         const ids = arsipToEdit.arsip_labels.map(al => al.labels?.id).filter(Boolean);
         setSelectedLabelIds(ids);
+      }
+
+      // Show additional details if any optional field has data
+      if (arsipToEdit.pengirim || arsipToEdit.tujuanSurat || arsipToEdit.googleDriveLink) {
+        setShowAdditionalDetails(true);
       }
     }
   }, [arsipToEdit]);
@@ -93,21 +182,6 @@ export default function ArsipForm({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Validation
-  const validate = () => {
-    const newErrors = {};
-    // nomorSurat, pengirim, tujuan are now optional
-    // if (!formData.nomorSurat) newErrors.nomorSurat = 'Nomor surat wajib diisi';
-    if (!formData.perihal) newErrors.perihal = 'Perihal wajib diisi';
-    if (!formData.kodeKlasifikasi) newErrors.kodeKlasifikasi = 'Kode klasifikasi wajib dipilih';
-    if (!formData.tanggalSurat) newErrors.tanggalSurat = 'Tanggal surat wajib diisi';
-    // if (!formData.pengirim) newErrors.pengirim = 'Pengirim wajib diisi';
-    // if (tujuanList.length === 0 && !tujuanInput.trim()) newErrors.tujuan = 'Tujuan surat wajib diisi';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   // Handle Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -118,15 +192,11 @@ export default function ArsipForm({
       finalTujuanList.push(tujuanInput.trim());
     }
 
-    // Custom validation check using the derived list
-    // Custom validation check using the derived list
+    // Validation
     const newErrors = {};
-    // if (!formData.nomorSurat) newErrors.nomorSurat = 'Nomor surat wajib diisi';
     if (!formData.perihal) newErrors.perihal = 'Perihal wajib diisi';
     if (!formData.kodeKlasifikasi) newErrors.kodeKlasifikasi = 'Kode klasifikasi wajib dipilih';
     if (!formData.tanggalSurat) newErrors.tanggalSurat = 'Tanggal surat wajib diisi';
-    // if (!formData.pengirim) newErrors.pengirim = 'Pengirim wajib diisi';
-    // if (finalTujuanList.length === 0) newErrors.tujuan = 'Tujuan surat wajib diisi';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -136,7 +206,6 @@ export default function ArsipForm({
 
     // Check for duplicate nomorSurat if provided
     if (formData.nomorSurat) {
-      // Check duplicate
       let query = supabase
         .from('arsip')
         .select('id')
@@ -156,16 +225,15 @@ export default function ArsipForm({
 
     setLoading(true);
     try {
-      // Calculate retention date (e.g., 5 years from letter date)
+      // Calculate retention date
       const suratDate = new Date(formData.tanggalSurat);
       const retensiDate = new Date(suratDate);
-      retensiDate.setFullYear(retensiDate.getFullYear() + 5); // Default 5 years
+      retensiDate.setFullYear(retensiDate.getFullYear() + 5);
 
       const payload = {
         ...formData,
         tujuanSurat: finalTujuanList.join('; '),
         tanggalRetensi: retensiDate.toISOString()
-        // updated_at removed as it is not in schema
       };
 
       let arsipId;
@@ -189,12 +257,10 @@ export default function ArsipForm({
 
       // Handle Labels
       if (arsipId) {
-        // First delete existing links (simple strategy)
         if (arsipToEdit) {
           await supabase.from('arsip_labels').delete().eq('arsip_id', arsipId);
         }
 
-        // Insert new links
         if (selectedLabelIds.length > 0) {
           const labelInserts = selectedLabelIds.map(labelId => ({
             arsip_id: arsipId,
@@ -231,6 +297,7 @@ export default function ArsipForm({
   const handleTujuanKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleAddTujuan(tujuanInput);
     } else if (e.key === 'Backspace' && !tujuanInput && tujuanList.length > 0) {
       handleRemoveTujuan(tujuanList.length - 1);
@@ -264,38 +331,57 @@ export default function ArsipForm({
   const tujuanSuggestions = [...new Set(allTujuan)];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <form onSubmit={handleSubmit} className="bg-white p-4 md:p-8 rounded-3xl shadow-sm border border-neutral-100 space-y-6 md:space-y-8">
-        {/* Section 1: Detail Informasi Surat */}
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
-            <FileText size={24} className="text-primary-500" />
-            Detail Informasi Surat
-          </h3>
+    <div className="max-w-5xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-6">
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        {/* Section 1: Primary Information */}
+        <div className="bg-white rounded-2xl border-2 border-neutral-200 p-6 md:p-8 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-primary-50 rounded-lg">
+              <FileText size={24} className="text-primary-600" />
+            </div>
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              <h3 className="text-lg font-bold text-neutral-900">Informasi Utama</h3>
+              <p className="text-xs text-neutral-500">Data pokok arsip yang wajib diisi</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Nomor Surat - Full width with auto-detect */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-neutral-700 mb-2">
                 Nomor Surat
               </label>
               <div className="relative">
-                <Hash size={16} className="absolute left-3 top-3 text-neutral-400" />
+                <Hash size={16} className="absolute left-3 top-3 text-neutral-400 z-10" />
                 <AutocompleteInput
                   suggestions={nomorSuratSuggestions}
                   value={formData.nomorSurat}
-                  onChange={(val) => setFormData({ ...formData, nomorSurat: val })}
-                  placeholder="Contoh: 000.1/xxx/310"
+                  onChange={handleNomorSuratChange}
+                  placeholder="800.1.11.1/1221/310"
                   className={cn(
                     "pl-9 w-full",
                     errors.nomorSurat && "border-danger-500 focus:ring-danger-200"
                   )}
                 />
               </div>
-              {errors.nomorSurat && <p className="text-xs text-danger-500 mt-1">{errors.nomorSurat}</p>}
+              {detectedInfo && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200"
+                >
+                  <Sparkles size={14} />
+                  <span className="font-medium">
+                    Kode klasifikasi terdeteksi: {detectedInfo.kode} - {detectedInfo.deskripsi}
+                  </span>
+                </motion.div>
+              )}
             </div>
 
+            {/* Tanggal Surat */}
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              <label className="block text-sm font-semibold text-neutral-700 mb-2">
                 Tanggal Surat <span className="text-danger-500">*</span>
               </label>
               <div className="relative">
@@ -313,70 +399,36 @@ export default function ArsipForm({
               {errors.tanggalSurat && <p className="text-xs text-danger-500 mt-1">{errors.tanggalSurat}</p>}
             </div>
 
-            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                  Pengirim
-                </label>
-                <AutocompleteInput
-                  suggestions={pengirimSuggestions}
-                  value={formData.pengirim}
-                  onChange={(val) => setFormData({ ...formData, pengirim: val })}
-                  placeholder="Contoh: Dinas Lingkungan Hidup Kota Magelang"
-                  className={cn(
-                    "w-full",
-                    errors.pengirim && "border-danger-500 focus:ring-danger-200"
-                  )}
-                />
-                {errors.pengirim && <p className="text-xs text-danger-500 mt-1">{errors.pengirim}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                  Tujuan Surat
-                </label>
-                <div className={cn(
-                  "w-full bg-neutral-50 border border-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-500 transition-all px-3 py-2 flex flex-wrap gap-2 min-h-[42px]",
-                  errors.tujuan && "border-danger-500 focus-within:ring-danger-200"
-                )}>
-                  <AnimatePresence>
-                    {tujuanList.map((tujuan, index) => (
-                      <motion.span
-                        key={index}
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
-                        className="bg-white border border-neutral-200 text-neutral-700 px-2 py-1 rounded-lg text-sm flex items-center gap-1 shadow-sm"
-                      >
-                        {tujuan}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTujuan(index)}
-                          className="text-neutral-400 hover:text-danger-500 transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </motion.span>
-                    ))}
-                  </AnimatePresence>
-                  <div className="flex-1 min-w-[150px]">
-                    <AutocompleteInput
-                      suggestions={tujuanSuggestions}
-                      value={tujuanInput}
-                      onChange={setTujuanInput}
-                      onSelect={handleAddTujuan}
-                      onKeyDown={handleTujuanKeyDown}
-                      placeholder={tujuanList.length === 0 ? "Contoh: Kepala Dinas Perhubungan Kota Magelang" : ""}
-                      className="!border-none !ring-0 !outline-none !shadow-none !p-0 !bg-transparent w-full h-full"
-                    />
-                  </div>
-                </div>
-                {errors.tujuan && <p className="text-xs text-danger-500 mt-1">{errors.tujuan}</p>}
-              </div>
+            {/* Kode Klasifikasi */}
+            <div>
+              <label className="block text-sm font-semibold text-neutral-700 mb-2">
+                Kode Klasifikasi <span className="text-danger-500">*</span>
+              </label>
+              <SearchableSelect
+                placeholder="Cari kode atau deskripsi..."
+                options={klasifikasiList.map(k => ({
+                  value: k.kode,
+                  label: `${k.kode} - ${k.deskripsi}`
+                }))}
+                value={formData.kodeKlasifikasi}
+                onChange={(val) => {
+                  setFormData({ ...formData, kodeKlasifikasi: val });
+                  setAutoDetected(false);
+                }}
+                className={errors.kodeKlasifikasi ? "border-danger-500" : ""}
+              />
+              {autoDetected && (
+                <p className="text-xs text-neutral-500 mt-1.5 flex items-center gap-1">
+                  <Sparkles size={12} />
+                  Terdeteksi otomatis dari nomor surat
+                </p>
+              )}
+              {errors.kodeKlasifikasi && <p className="text-xs text-danger-500 mt-1">{errors.kodeKlasifikasi}</p>}
             </div>
 
+            {/* Perihal - Full width */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              <label className="block text-sm font-semibold text-neutral-700 mb-2">
                 Perihal <span className="text-danger-500">*</span>
               </label>
               <AutocompleteInput
@@ -391,170 +443,220 @@ export default function ArsipForm({
               />
               {errors.perihal && <p className="text-xs text-danger-500 mt-1">{errors.perihal}</p>}
             </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Kode Klasifikasi <span className="text-danger-500">*</span>
-              </label>
-              <SearchableSelect
-                placeholder="Cari kode atau deskripsi..."
-                options={klasifikasiList.map(k => ({
-                  value: k.kode,
-                  label: `${k.kode} - ${k.deskripsi}`
-                }))}
-                value={formData.kodeKlasifikasi}
-                onChange={(val) => setFormData({ ...formData, kodeKlasifikasi: val })}
-                className={errors.kodeKlasifikasi ? "border-danger-500" : ""}
-              />
-              {errors.kodeKlasifikasi && <p className="text-xs text-danger-500 mt-1">{errors.kodeKlasifikasi}</p>}
-            </div>
-
-            {/* Labels Section */}
-            <div className="md:col-span-2 relative" ref={labelDropdownRef}>
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Label (Opsional)
-              </label>
-
-              <div className="flex flex-wrap gap-2 items-center min-h-[38px] p-1">
-                {selectedLabelIds.map(id => {
-                  const label = labels.find(l => l.id === id);
-                  if (!label) return null;
-                  return (
-                    <LabelBadge
-                      key={id}
-                      label={label}
-                      showDelete={true}
-                      onDelete={() => toggleLabel(id)}
-                    />
-                  );
-                })}
-
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowLabelDropdown(!showLabelDropdown)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 border border-neutral-200 border-dashed transition-colors"
-                  >
-                    <Plus size={12} />
-                    Tambah Label
-                  </button>
-
-                  <AnimatePresence>
-                    {showLabelDropdown && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        className="absolute top-full left-0 mt-2 w-64 bg-white border border-neutral-100 rounded-xl shadow-lg z-50 overflow-hidden"
-                      >
-                        <div className="p-2 border-b border-neutral-50">
-                          <input
-                            type="text"
-                            value={labelSearch}
-                            onChange={(e) => setLabelSearch(e.target.value)}
-                            placeholder="Cari label..."
-                            className="w-full px-2 py-1 text-sm bg-neutral-50 rounded-md outline-none"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
-                          {filteredLabels.length === 0 ? (
-                            <div className="px-3 py-2 text-xs text-neutral-400 text-center">
-                              {labelSearch ? 'Tidak ada label ditemukan' : 'Semua label sudah dipilih'}
-                            </div>
-                          ) : (
-                            filteredLabels.map(label => (
-                              <button
-                                key={label.id}
-                                type="button"
-                                onClick={() => toggleLabel(label.id)}
-                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-2 group transition-colors"
-                              >
-                                <LabelBadge label={label} size="sm" />
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <div className="h-px bg-neutral-100" />
-
-        {/* Section 2: Link Dokumen */}
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
-            <LinkIcon size={24} className="text-primary-500" />
-            Link Dokumen
-          </h3>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Link Google Drive
-              </label>
-              <div className="relative">
-                <LinkIcon size={16} className="absolute left-3 top-3 text-neutral-400" />
-                <input
-                  type="url"
-                  value={formData.googleDriveLink}
-                  onChange={(e) => setFormData({ ...formData, googleDriveLink: e.target.value })}
-                  placeholder="https://drive.google.com/..."
-                  className="w-full pl-9 px-4 py-2.5 h-[42px] bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none"
-                />
-              </div>
-              <p className="text-xs text-neutral-400 mt-1">
-                Pastikan link dapat diakses (Public atau Shared).
-              </p>
+        {/* Section 2: Label & Kategori */}
+        <div className="bg-gradient-to-br from-neutral-50 to-white rounded-2xl border border-neutral-200 p-6 md:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-purple-50 rounded-lg">
+              <Tag size={24} className="text-purple-600" />
             </div>
+            <div>
+              <h3 className="text-base font-bold text-neutral-900">Label & Kategori</h3>
+              <p className="text-xs text-neutral-500">Tambahkan label untuk memudahkan pencarian (opsional)</p>
+            </div>
+          </div>
 
-            {formData.googleDriveLink && (
-              <div className="p-4 bg-primary-50 rounded-xl border border-primary-100 flex items-start gap-3">
-                <div className="p-2 bg-white rounded-lg shadow-sm text-primary-600">
-                  <LinkIcon size={20} />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <p className="text-sm font-medium text-primary-900">Link Terlampir</p>
-                  <a
-                    href={formData.googleDriveLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary-600 hover:underline mt-1 block truncate"
-                  >
-                    {formData.googleDriveLink}
-                  </a>
-                </div>
+          <div className="relative" ref={labelDropdownRef}>
+            <div className="flex flex-wrap gap-2 items-center min-h-[38px]">
+              {selectedLabelIds.map(id => {
+                const label = labels.find(l => l.id === id);
+                if (!label) return null;
+                return (
+                  <LabelBadge
+                    key={id}
+                    label={label}
+                    showDelete={true}
+                    onDelete={() => toggleLabel(id)}
+                  />
+                );
+              })}
+
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, googleDriveLink: '' })}
-                  className="text-primary-400 hover:text-danger-500 transition-colors"
+                  onClick={() => setShowLabelDropdown(!showLabelDropdown)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 border border-neutral-200 border-dashed transition-colors"
                 >
-                  <X size={16} />
+                  <Plus size={14} />
+                  Tambah Label
                 </button>
+
+                <AnimatePresence>
+                  {showLabelDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      className="absolute top-full left-0 mt-2 w-64 bg-white border border-neutral-100 rounded-xl shadow-lg z-50 overflow-hidden"
+                    >
+                      <div className="p-2 border-b border-neutral-50">
+                        <input
+                          type="text"
+                          value={labelSearch}
+                          onChange={(e) => setLabelSearch(e.target.value)}
+                          placeholder="Cari label..."
+                          className="w-full px-2 py-1 text-sm bg-neutral-50 rounded-md outline-none"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
+                        {filteredLabels.length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-neutral-400 text-center">
+                            {labelSearch ? 'Tidak ada label ditemukan' : 'Semua label sudah dipilih'}
+                          </div>
+                        ) : (
+                          filteredLabels.map(label => (
+                            <button
+                              key={label.id}
+                              type="button"
+                              onClick={() => toggleLabel(label.id)}
+                              className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-2 group transition-colors"
+                            >
+                              <LabelBadge label={label} size="sm" />
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t border-neutral-100">
+        {/* Section 3: Additional Details (Collapsible) */}
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
+            className="w-full flex items-center justify-between p-6 hover:bg-neutral-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Mail size={20} className="text-blue-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-base font-bold text-neutral-900">Detail Tambahan</h3>
+                <p className="text-xs text-neutral-500">Informasi opsional (pengirim, tujuan, dll)</p>
+              </div>
+            </div>
+            <ChevronDown
+              size={20}
+              className={cn(
+                "text-neutral-400 transition-transform",
+                showAdditionalDetails && "rotate-180"
+              )}
+            />
+          </button>
+
+          <AnimatePresence>
+            {showAdditionalDetails && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="p-6 pt-0 space-y-6 border-t border-neutral-100">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Pengirim */}
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Pengirim
+                      </label>
+                      <AutocompleteInput
+                        suggestions={pengirimSuggestions}
+                        value={formData.pengirim}
+                        onChange={(val) => setFormData({ ...formData, pengirim: val })}
+                        placeholder="Contoh: Dinas Lingkungan Hidup"
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Tujuan Surat */}
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Tujuan Surat
+                      </label>
+                      <div className="w-full bg-neutral-50 border border-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-500 transition-all px-3 py-2 flex flex-wrap gap-2 min-h-[42px]">
+                        <AnimatePresence>
+                          {tujuanList.map((tujuan, index) => (
+                            <motion.span
+                              key={index}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              className="bg-white border border-neutral-200 text-neutral-700 px-2 py-1 rounded-lg text-sm flex items-center gap-1 shadow-sm"
+                            >
+                              {tujuan}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTujuan(index)}
+                                className="text-neutral-400 hover:text-danger-500 transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </motion.span>
+                          ))}
+                        </AnimatePresence>
+                        <div className="flex-1 min-w-[150px]">
+                          <AutocompleteInput
+                            suggestions={tujuanSuggestions}
+                            value={tujuanInput}
+                            onChange={setTujuanInput}
+                            onSelect={handleAddTujuan}
+                            onKeyDown={handleTujuanKeyDown}
+                            placeholder={tujuanList.length === 0 ? "Contoh: Kepala Dinas Perhubungan" : ""}
+                            className="!border-none !ring-0 !outline-none !shadow-none !p-0 !bg-transparent w-full h-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Google Drive Link - Full width */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">
+                      Link Google Drive
+                    </label>
+                    <div className="relative">
+                      <LinkIcon size={16} className="absolute left-3 top-3 text-neutral-400" />
+                      <input
+                        type="url"
+                        value={formData.googleDriveLink}
+                        onChange={(e) => setFormData({ ...formData, googleDriveLink: e.target.value })}
+                        placeholder="https://drive.google.com/..."
+                        className="w-full pl-9 px-4 py-2.5 h-[42px] bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none"
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-1.5">
+                      Pastikan link dapat diakses (Public atau Shared)
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Action Buttons - Sticky */}
+        <div className="sticky bottom-0 bg-white border-t border-neutral-200 p-6 -mx-6 flex gap-3 shadow-lg rounded-t-2xl">
           <button
             type="button"
             onClick={onFinish}
             disabled={loading}
-            className="flex-1 px-6 py-3 bg-white border border-neutral-200 text-neutral-700 font-medium rounded-xl hover:bg-neutral-50 transition-colors disabled:opacity-50"
+            className="flex-1 px-6 py-3 bg-white border-2 border-neutral-200 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-50 transition-colors disabled:opacity-50"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-[2] px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-[2] px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -569,7 +671,7 @@ export default function ArsipForm({
             )}
           </button>
         </div>
-      </form>
-    </div>
+      </form >
+    </div >
   );
 }

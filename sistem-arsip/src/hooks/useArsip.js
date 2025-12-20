@@ -53,9 +53,16 @@ export function useArsip(params = {}) {
             }
 
             // Sorting
-            query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+            const validSortColumns = ['nomorSurat', 'tanggalSurat', 'created_at', 'kodeKlasifikasi', 'perihal'];
+            let sortColumn = sortBy;
 
-            // Pagination
+            // Map virtual columns to best proxies or defaults to prevent crashes
+            if (sortBy === 'status') sortColumn = 'tanggalSurat';
+            else if (sortBy === 'label') sortColumn = 'created_at';
+            else if (!validSortColumns.includes(sortBy)) sortColumn = 'tanggalSurat';
+
+            query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
+
             // Pagination
             if (page !== 'all') {
                 const from = (page - 1) * pageSize;

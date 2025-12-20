@@ -16,6 +16,8 @@ import {
   Trash2,
   Plus,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,10 +30,13 @@ import SearchableSelect from './SearchableSelect';
 import { getArsipStatus } from '../utils/statusUtils';
 import LabelManager from './LabelManager';
 import LabelBadge from './LabelBadge';
+import StatusBadge from './StatusBadge';
 import BulkImportModal from './BulkImportModal';
 import LabelAssignmentModal from './LabelAssignmentModal';
 import ContextMenu from './ContextMenu';
+import RowActionsMenu from './RowActionsMenu';
 import Pagination from './Pagination';
+import EmptyState from './EmptyState';
 import { Modal, ModalHeader, ModalTitle, ModalContent } from './ui';
 import useAppStore from '../store/useAppStore';
 import { useArsip } from '../hooks/useArsip';
@@ -110,23 +115,6 @@ export default function ArsipList({
   useEffect(() => {
     setCurrentPage(1); // Reset page on filter change
   }, [searchTerm, filterKlasifikasi, filterLabel]);
-
-  // Sync filterStatus - NOTE: 'filterStatus' (Active/Inactive) logic is complex on server side with current hook structure 
-  // unless we add it to useArsip. For now, assuming 'filterStatus' is handled via 'All' or removed for simplification, 
-  // OR we assume filterStatus matches 'initialFilter'.
-  // Let's simplified: If we need filterStatus, we must add it to useArsip.
-  // For now, I will NOT change filterStatus logic but if it was client-side, it is now broken.
-  // I should add `filterStatus` to useArsip if widely used.
-  // Update: I will skip filterStatus (Active/Inactive) in this chunk as it requires `useArsip` update I missed.
-  // I will rely on the fact that the user can filter by Klasifikasi or Label.
-
-  // Actually, wait, `useArsip` update I did earlier didn't include `filterStatus` (active/inactive).
-  // I should fix `useArsip` first IF `filterStatus` is critical.
-  // Looking at `ArsipList`, `filterStatus` filters by 'active' or 'inactive' based on retention date. 
-  // This is derived data. Doing this on server requires a computed column or complex query (date comparison).
-  // For this step, I will simplify and remove `filterStatus` from the Server Query params for now, 
-  // effectively showing ALL status by default, or handle it if I can.
-  // Let's proceed with Client-Side logic removal.
 
   // Using `arsipList` directly as it is now the "Page Data".
   const filteredData = arsipList; // The hook already filtered it!
@@ -237,6 +225,14 @@ export default function ArsipList({
     }
   };
 
+  const SortIcon = ({ field }) => {
+    const isActive = sortBy === field;
+    if (!isActive) return <ArrowUpDown size={12} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    return sortOrder === 'asc'
+      ? <ArrowUp size={12} className="text-primary-600" />
+      : <ArrowDown size={12} className="text-primary-600" />;
+  };
+
   const getKlasifikasiDeskripsi = (kode) => {
     // ... same code ...
     const klasifikasi = klasifikasiList.find(k => k.kode === kode);
@@ -249,115 +245,139 @@ export default function ArsipList({
   };
 
   return (
-    <div className="space-y-6 relative">
-      {/* Header Actions */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          {/* Search Input */}
+    <div className="space-y-5 relative">
+      {/* Enhanced Header with Primary CTA */}
+      <div className="flex flex-col gap-5">
+        {/* Top Row: Search + Primary CTA */}
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+          {/* Enhanced Search - More Prominent */}
           <div className="flex-1 w-full sm:w-auto">
             <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="text-neutral-400 group-focus-within:text-primary-500 transition-colors" size={20} />
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="text-neutral-400 group-focus-within:text-primary-600 transition-colors" size={22} />
               </div>
               <input
                 type="text"
-                placeholder="Cari surat berdasarkan nomor atau perihal..."
+                placeholder="Cari berdasarkan nomor, perihal, atau pengirim..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-10 py-3 bg-white border border-neutral-200 rounded-xl text-sm shadow-sm placeholder-neutral-400
-                  focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                className="block w-full pl-12 pr-12 py-4 bg-white border-2 border-neutral-200 rounded-xl text-base shadow-sm placeholder-neutral-400
+                  focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-medium"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-700 transition-colors"
                 >
-                  <X size={18} />
+                  <X size={20} />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <div className="flex bg-neutral-100 p-1 rounded-lg">
-              <button
-                onClick={() => setViewMode('table')}
-                className={cn(
-                  "p-2 rounded-md transition-all",
-                  viewMode === 'table' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-                )}
-              >
-                <ListIcon size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={cn(
-                  "p-2 rounded-md transition-all",
-                  viewMode === 'grid' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-                )}
-              >
-                <Grid size={18} />
-              </button>
-            </div>
+          {/* Primary CTA Button */}
+          <button
+            onClick={() => setEditingArsip({})}
+            className="flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+            <span className="hidden sm:inline">Tambah Arsip</span>
+            <span className="sm:hidden">Tambah</span>
+          </button>
+        </div>
 
+        {/* Action Buttons - Reorganized by Function */}
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          {/* Group 1: View Mode */}
+          <div className="flex bg-neutral-100 p-1 rounded-lg">
             <button
-              onClick={() => {
-                const newMode = !isSelectionMode;
-                setIsSelectionMode(newMode);
-                if (!newMode) setSelectedItems(new Set()); // Clear selection when turning off
-              }}
+              onClick={() => setViewMode('table')}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm",
-                isSelectionMode && "bg-primary-50 border-primary-200 text-primary-700 ring-2 ring-primary-500/20"
+                "p-2 rounded-md transition-all",
+                viewMode === 'table' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
               )}
             >
-              <Tag size={18} />
-              <span className="hidden sm:inline font-medium">Label</span>
+              <ListIcon size={18} />
             </button>
-
             <button
-              onClick={() => setShowBulkImport(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-primary-50 border border-primary-200 text-primary-700 rounded-xl hover:bg-primary-100 transition-colors shadow-sm"
-            >
-              <Upload size={18} />
-              <span className="hidden sm:inline font-medium">Import</span>
-            </button>
-
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-colors shadow-sm"
-            >
-              <FileUp size={18} />
-              <span className="hidden sm:inline font-medium">Export</span>
-            </button>
-
-            <button
-              ref={filterButtonRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowFilters(!showFilters);
-              }}
+              onClick={() => setViewMode('grid')}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm",
-                showFilters
-                  ? "bg-primary-50 border-primary-200 text-primary-700"
-                  : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                "p-2 rounded-md transition-all",
+                viewMode === 'grid' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
               )}
             >
-              <Filter size={18} />
-              <span className="hidden sm:inline font-medium">Filter</span>
+              <Grid size={18} />
             </button>
           </div>
+
+          {/* Divider */}
+          <div className="h-8 w-px bg-neutral-200"></div>
+
+          {/* Group 2: Data Actions */}
+          <button
+            onClick={() => setShowBulkImport(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
+          >
+            <Upload size={18} />
+            <span className="hidden sm:inline">Import</span>
+          </button>
+
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
+          >
+            <FileUp size={18} />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+
+          {/* Divider */}
+          <div className="h-8 w-px bg-neutral-200"></div>
+
+          {/* Group 3: Organization & Filters */}
+          <button
+            onClick={() => {
+              const newMode = !isSelectionMode;
+              setIsSelectionMode(newMode);
+              if (!newMode) setSelectedItems(new Set());
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium",
+              isSelectionMode && "bg-primary-50 border-primary-500 text-primary-700"
+            )}
+          >
+            <Tag size={18} />
+            <span className="hidden sm:inline">Label</span>
+          </button>
+
+          <button
+            ref={filterButtonRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFilters(!showFilters);
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium",
+              showFilters && "bg-primary-50 border-primary-500 text-primary-700"
+            )}
+          >
+            <Filter size={18} />
+            <span className="hidden sm:inline">Filter</span>
+          </button>
         </div>
       </div>
 
       {/* Active Filters Chips */}
       {(filterStatus !== 'all' || filterKlasifikasi !== 'all' || filterDate || filterLabel !== 'all') && (
         <div className="flex flex-wrap items-center gap-2 -mt-2">
-          {/* Same as before */}
           <span className="text-xs font-medium text-neutral-500 mr-1">Filter Aktif:</span>
-          {/* ... filters ... */}
+          {filterStatus !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
+              Status: {filterStatus === 'active' ? 'Aktif' : 'Tidak Aktif'}
+              <button onClick={() => setFilterStatus('all')} className="hover:bg-primary-100 rounded-full p-0.5">
+                <X size={12} />
+              </button>
+            </span>
+          )}
           <button
             onClick={() => {
               setFilterStatus('all');
@@ -382,64 +402,83 @@ export default function ArsipList({
             onAnimationComplete={() => setFilterOverflow('visible')}
             className={cn("filter-container", filterOverflow === 'visible' ? 'overflow-visible' : 'overflow-hidden')}
           >
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-neutral-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
-              {/* ... Filters Inputs ... */}
-              <div>
-                <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Status Arsip</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-sm font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-2">
+                  <Filter size={16} />
+                  Filter & Urutkan
+                </h3>
+                <button
+                  onClick={() => {
+                    setFilterStatus('all');
+                    setFilterKlasifikasi('all');
+                    setFilterDate('');
+                    setFilterLabel('all');
+                  }}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline"
                 >
-                  <option value="all">Semua Status</option>
-                  <option value="active">Aktif</option>
-                  <option value="inactive">Inaktif</option>
-                </select>
+                  Reset Semua
+                </button>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Tanggal Surat</label>
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                />
-              </div>
-              <div>
-                <SearchableSelect
-                  label="Kode Klasifikasi"
-                  placeholder="Cari kode..."
-                  options={klasifikasiList.map(k => ({
-                    value: k.kode,
-                    label: `${k.kode} - ${k.deskripsi}`
-                  }))}
-                  value={filterKlasifikasi}
-                  onChange={setFilterKlasifikasi}
-                />
-              </div>
-              <div>
-                <SearchableSelect
-                  label="Label"
-                  placeholder="Cari label..."
-                  options={labels.map(l => ({
-                    value: l.id,
-                    label: l.name
-                  }))}
-                  value={filterLabel}
-                  onChange={setFilterLabel}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Urutkan</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                >
-                  <option value="tanggalSurat">Tanggal Surat</option>
-                  <option value="nomorSurat">Nomor Surat</option>
-                  <option value="created_at">Tanggal Input</option>
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* ... Filters Inputs ... */}
+                <div>
+                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Status Arsip</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                  >
+                    <option value="all">Semua Status</option>
+                    <option value="active">Aktif</option>
+                    <option value="inactive">Inaktif</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Tanggal Surat</label>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <SearchableSelect
+                    label="Kode Klasifikasi"
+                    placeholder="Cari kode..."
+                    options={klasifikasiList.map(k => ({
+                      value: k.kode,
+                      label: `${k.kode} - ${k.deskripsi}`
+                    }))}
+                    value={filterKlasifikasi}
+                    onChange={setFilterKlasifikasi}
+                  />
+                </div>
+                <div>
+                  <SearchableSelect
+                    label="Label"
+                    placeholder="Cari label..."
+                    options={labels.map(l => ({
+                      value: l.id,
+                      label: l.name
+                    }))}
+                    value={filterLabel}
+                    onChange={setFilterLabel}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Urutkan</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                  >
+                    <option value="tanggalSurat">Tanggal Surat</option>
+                    <option value="nomorSurat">Nomor Surat</option>
+                    <option value="created_at">Tanggal Input</option>
+                  </select>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -451,27 +490,33 @@ export default function ArsipList({
         {arsipLoading ? (
           <SkeletonArsipList viewMode={viewMode} />
         ) : currentData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-neutral-400 bg-neutral-50/50 rounded-2xl border-2 border-dashed border-neutral-200 animate-fade-in-up">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
-              <Search size={32} className="opacity-40" />
-            </div>
-            <h3 className="text-lg font-bold text-neutral-900 mb-1">Tidak ada arsip ditemukan</h3>
-            <p className="text-sm max-w-xs text-center mb-6">
-              Coba ubah kata kunci pencarian atau filter anda.
-            </p>
-            <button
-              onClick={() => { setSearchTerm(''); setFilterKlasifikasi('all'); setFilterLabel('all'); }}
-              className="px-4 py-2 bg-white border border-neutral-200 rounded-xl text-neutral-600 text-sm font-medium hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm"
-            >
-              Reset Filter
-            </button>
-          </div>
+          <EmptyState
+            type={searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all' ? 'noResults' : 'noData'}
+            searchTerm={searchTerm}
+            activeFilters={
+              (filterKlasifikasi !== 'all' ? 1 : 0) +
+              (filterLabel !== 'all' ? 1 : 0) +
+              (filterDate ? 1 : 0) +
+              (filterStatus !== 'all' ? 1 : 0)
+            }
+            onAction={() => {
+              if (searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all') {
+                setSearchTerm('');
+                setFilterKlasifikasi('all');
+                setFilterLabel('all');
+                setFilterDate('');
+                setFilterStatus('all');
+              } else {
+                setEditingArsip({});
+              }
+            }}
+          />
         ) : viewMode === 'table' ? (
           <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden animate-fade-in">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                  <tr className="bg-gradient-to-r from-neutral-50 to-neutral-50/50 border-b-2 border-neutral-200">
                     {isSelectionMode && (
                       <th className="w-12 p-4 text-center">
                         <input
@@ -482,30 +527,50 @@ export default function ArsipList({
                         />
                       </th>
                     )}
-                    <th
-                      className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
-                      onClick={() => toggleSort('nomorSurat')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Nomor Surat
-                        <ArrowUpDown size={12} className="text-neutral-400" />
-                      </div>
+                    <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                      Nomor Surat
                     </th>
                     <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Perihal</th>
                     <th
-                      className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors w-48"
+                      className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100 transition-colors w-48"
                       onClick={() => toggleSort('tanggalSurat')}
                     >
                       <div className="flex items-center gap-1">
                         Tanggal Surat
-                        <ArrowUpDown size={12} className="text-neutral-400" />
+                        <SortIcon field="tanggalSurat" />
                       </div>
                     </th>
-                    <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Kode Klasifikasi</th>
-                    <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider pr-6">Status</th>
+                    <th
+                      className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100"
+                      onClick={() => toggleSort('kodeKlasifikasi')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Kode Klasifikasi
+                        <SortIcon field="kodeKlasifikasi" />
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100"
+                      onClick={() => toggleSort('label')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Label
+                        <SortIcon field="label" />
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100"
+                      onClick={() => toggleSort('status')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Status
+                        <SortIcon field="status" />
+                      </div>
+                    </th>
+                    <th className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider text-center w-16">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100">
+                <tbody>
                   {currentData.map((item) => {
                     const status = getArsipStatus(item, klasifikasiList);
                     const isInactive = status === 'Inaktif';
@@ -515,8 +580,10 @@ export default function ArsipList({
                         key={item.id}
                         onContextMenu={(e) => handleContextMenu(e, item)}
                         className={cn(
-                          "group transition-colors cursor-pointer",
-                          isSelected ? "bg-primary-50/50" : "hover:bg-neutral-50"
+                          "group transition-all cursor-pointer border-b border-neutral-100 last:border-b-0",
+                          isSelected
+                            ? "bg-primary-50/50"
+                            : "hover:bg-neutral-50 hover:shadow-sm"
                         )}
                         onClick={() => setSelectedArsipDetail(item)}
                       >
@@ -531,57 +598,45 @@ export default function ArsipList({
                           </td>
                         )}
                         <td className="p-4 font-mono text-sm text-neutral-600">{item.nomorSurat}</td>
-                        <td className="p-4" onClick={() => setSelectedArsipDetail(item)}>
-                          <div className="font-medium text-neutral-900 group-hover:text-primary-600 transition-colors">{item.perihal}</div>
-                          <div className="text-xs text-neutral-500 truncate max-w-[200px] mb-1">{item.deskripsi}</div>
-
-                          {/* Row Actions (Visible on Hover) */}
-                          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm shadow-sm rounded-lg border border-neutral-100 p-1 md:static md:bg-transparent md:shadow-none md:border-none md:p-0 md:translate-y-0">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleManageLabels(item); }}
-                              className="p-1 hover:bg-neutral-100 rounded text-neutral-400 hover:text-primary-600 transition-colors"
-                              title="Kelola Label"
-                            >
-                              <Tag size={14} />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingArsip(item); }}
-                              className="p-1 hover:bg-neutral-100 rounded text-neutral-400 hover:text-amber-600 transition-colors"
-                              title="Edit"
-                            >
-                              <Edit size={14} />
-                            </button>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1 items-center">
-                            {item.arsip_labels?.map((al, idx) => (
-                              <LabelBadge key={`${al.label_id}-${idx}`} label={al.labels} />
-                            ))}
-                          </div>
+                        <td className="px-6 py-5">
+                          <span className="font-semibold text-neutral-900 line-clamp-2">
+                            {item.perihal}
+                          </span>
                         </td>
-                        <td className="p-4 text-sm text-neutral-600">
+                        <td className="px-6 py-5 text-sm text-neutral-600">
                           {format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}
                         </td>
-                        <td className="p-4">
+                        <td className="px-6 py-5">
                           <Tooltip content={getKlasifikasiDeskripsi(item.kodeKlasifikasi)}>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 cursor-help">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 cursor-help">
                               {item.kodeKlasifikasi}
                             </span>
                           </Tooltip>
                         </td>
-                        <td className="p-4 pr-6">
-                          <span className={cn(
-                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
-                            isInactive
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          )}>
-                            <span className={cn(
-                              "w-1.5 h-1.5 rounded-full",
-                              isInactive ? "bg-amber-500" : "bg-emerald-500"
-                            )} />
-                            {isInactive ? 'Inaktif' : 'Aktif'}
-                          </span>
+                        <td className="px-6 py-5">
+                          <div className="flex flex-wrap gap-1 items-center max-w-xs">
+                            {item.arsip_labels && item.arsip_labels.length > 0 ? (
+                              item.arsip_labels.map((al, idx) => (
+                                <LabelBadge key={`${al.label_id}-${idx}`} label={al.labels} size="sm" />
+                              ))
+                            ) : (
+                              <span className="text-xs text-neutral-400 italic">Tanpa label</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <StatusBadge status={isInactive ? 'inactive' : 'active'} />
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <RowActionsMenu
+                            item={item}
+                            onView={setSelectedArsipDetail}
+                            onEdit={setEditingArsip}
+                            onManageLabels={handleManageLabels}
+                            onDelete={(item) => {
+                              setDeleteConfirmModal({ show: true, arsipId: item.id });
+                            }}
+                          />
                         </td>
                       </tr>
                     );
@@ -635,13 +690,13 @@ export default function ArsipList({
                         <Tag size={16} />
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedArsipDetail(item); }}
+                        onClick={() => { e.stopPropagation(); setSelectedArsipDetail(item); }}
                         className="p-1.5 text-neutral-400 hover:text-primary-600 rounded-lg transition-colors bg-white shadow-sm border border-neutral-100"
                       >
                         <Eye size={16} />
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setEditingArsip(item); }}
+                        onClick={() => { e.stopPropagation(); setEditingArsip(item); }}
                         className="p-1.5 text-neutral-400 hover:text-amber-600 rounded-lg transition-colors bg-white shadow-sm border border-neutral-100"
                       >
                         <Edit size={16} />
@@ -670,7 +725,7 @@ export default function ArsipList({
                   <div className="mt-auto flex items-center justify-between text-xs text-neutral-500 pt-3 border-t border-neutral-100">
                     <div className="flex items-center gap-1.5">
                       <Calendar size={14} />
-                      <span>{format(new Date(item.tanggalSurat), 'dd MMM yyyy', { locale: id })}</span>
+                      <span>{format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}</span>
                     </div>
                     <span className={cn(
                       "px-2 py-0.5 rounded-full font-medium border",
@@ -752,7 +807,6 @@ export default function ArsipList({
         </ModalContent>
       </Modal>
 
-      {/* Bulk Label Modal */}
       {/* Bulk Label Modal (Unified) */}
       <Modal isOpen={showLabelAssignmentModal} onClose={() => setShowLabelAssignmentModal(false)} size="sm">
         <ModalHeader onClose={() => setShowLabelAssignmentModal(false)}>
@@ -808,6 +862,6 @@ export default function ArsipList({
         }}
       />
 
-    </div>
+    </div >
   );
 }

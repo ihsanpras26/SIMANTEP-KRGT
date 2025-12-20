@@ -11,6 +11,7 @@ export const generateTemplate = () => {
             perihal: 'Contoh Surat Keputusan',
             kode_klasifikasi: 'ADM-001',
             keterangan: 'Keterangan opsional',
+            google_drive_link: 'https://drive.google.com/file/d/xxxxx/view',
             labels: 'Magang,Urgent'
         },
         {
@@ -19,6 +20,7 @@ export const generateTemplate = () => {
             perihal: 'Contoh Undangan Rapat',
             kode_klasifikasi: 'ADM-002',
             keterangan: '',
+            google_drive_link: '',
             labels: 'Administrasi'
         }
     ];
@@ -33,6 +35,7 @@ export const generateTemplate = () => {
         { wch: 30 }, // perihal
         { wch: 20 }, // kode_klasifikasi
         { wch: 30 }, // keterangan
+        { wch: 40 }, // google_drive_link
         { wch: 20 }  // labels
     ];
 
@@ -192,6 +195,7 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
                     perihal: row.perihal.trim(),
                     kodeKlasifikasi: row.kode_klasifikasi.trim(),
                     keterangan: row.keterangan?.trim() || null,
+                    googleDriveLink: row.google_drive_link?.trim() || null,
                     tanggalRetensi: retensiDate.toISOString(),
                     created_at: new Date().toISOString()
                 })

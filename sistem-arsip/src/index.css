@@ -35,7 +35,7 @@
 
   /* Shadows */
   --shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 0 0 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.04);
   --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.3);
   --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
 }
@@ -48,19 +48,28 @@
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-  background-color: #f8fafc; /* neutral-50 */
-  color: #0f172a; /* neutral-900 */
+  background-color: #f8fafc;
+  /* neutral-50 */
+  color: #0f172a;
+  /* neutral-900 */
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  zoom: 0.8; /* User request: 80% scaling */
+  zoom: 0.8;
+  /* User request: 80% scaling */
 }
 
 /* Headings */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: 'Inter', system-ui, sans-serif;
   letter-spacing: -0.025em;
-  font-weight: 600; /* Ensure headings have weight */
+  font-weight: 600;
+  /* Ensure headings have weight */
 }
 
 /* Smooth scrolling */
@@ -93,14 +102,17 @@ html {
 
 /* Focus styles */
 *:focus-visible {
-  outline: 2px solid #6366f1; /* primary-500 */
+  outline: 2px solid #6366f1;
+  /* primary-500 */
   outline-offset: 2px;
 }
 
 /* Selection styles */
 ::selection {
-  background-color: #c7d2fe; /* primary-200 */
-  color: #312e81; /* primary-900 */
+  background-color: #c7d2fe;
+  /* primary-200 */
+  color: #312e81;
+  /* primary-900 */
 }
 
 /* Glassmorphism Utilities */
@@ -116,4 +128,17 @@ html {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Scroll Snap for Better UX */
+.scroll-smooth {
+  scroll-behavior: smooth;
+  scroll-padding-top: 1rem;
+}
+
+/* Remove scroll snap on mobile for better flexibility */
+@media (max-width: 768px) {
+  .scroll-smooth {
+    scroll-snap-type: none;
+  }
 }
