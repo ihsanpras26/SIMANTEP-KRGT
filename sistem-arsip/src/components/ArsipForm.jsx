@@ -115,7 +115,7 @@ export default function ArsipForm({
       const match = findMatchingKlasifikasi(parsed.kodeKlasifikasi);
 
       if (match) {
-        // Auto-fill kode klasifikasi
+        // Auto-fill kode klasifikasi (silent - no toast)
         setFormData(prev => ({
           ...prev,
           kodeKlasifikasi: match.kode
@@ -125,11 +125,6 @@ export default function ArsipForm({
         setDetectedInfo({
           kode: match.kode,
           deskripsi: match.deskripsi
-        });
-
-        toast.success(`✓ Kode klasifikasi terdeteksi: ${match.kode}`, {
-          duration: 3000,
-          icon: '🎯'
         });
       } else {
         setAutoDetected(false);

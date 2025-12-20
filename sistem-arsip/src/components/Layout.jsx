@@ -5,6 +5,8 @@ import CommandPalette from './CommandPalette';
 import { Toaster } from 'react-hot-toast';
 import { cn } from '../utils/cn';
 
+const SIDEBAR_COLLAPSED_KEY = 'simantep_sidebar_collapsed';
+
 export default function Layout({
   children,
   user,
@@ -13,11 +15,32 @@ export default function Layout({
   arsipList = [],
   setSelectedArsipDetail
 }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Initialize sidebar state from localStorage
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      return saved ? JSON.parse(saved) : false;
+    } catch { return false; }
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
+  // Persist sidebar state to localStorage
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
+  // Global keyboard shortcut for Command Palette (Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 selection:bg-primary-100 selection:text-primary-900">
