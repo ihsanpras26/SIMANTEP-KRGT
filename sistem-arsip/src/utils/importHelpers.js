@@ -47,7 +47,7 @@ export const parseFile = async (file) => {
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet);
                 resolve(jsonData);
@@ -170,7 +170,7 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
                 .from('arsip')
                 .insert({
                     nomorSurat: row.nomor_surat?.trim() || null,
-                    tanggalSurat: row.tanggal_surat,
+                    tanggalSurat: suratDate.toISOString().split('T')[0],
                     perihal: row.perihal.trim(),
                     kodeKlasifikasi: row.kode_klasifikasi.trim(),
                     googleDriveLink: row.google_drive_link?.trim() || null,
