@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   Filter,
-  FileUp,
+  Download,
   Tag,
   Grid,
   List as ListIcon,
@@ -326,7 +326,7 @@ export default function ArsipList({
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
           >
-            <FileUp size={18} />
+            <Download size={18} />
             <span className="hidden sm:inline">Export</span>
           </button>
 
