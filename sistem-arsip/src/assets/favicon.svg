@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Creator: CorelDRAW -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="256px" height="256px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
+viewBox="0 0 1880.91 1880.91"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .fil2 {fill:none}
+    .fil0 {fill:#4A44D4}
+    .fil1 {fill:white}
+   ]]>
+  </style>
+ </defs>
+ <g id="Layer_x0020_1">
+  <metadata id="CorelCorpID_0Corel-Layer"/>
+  <rect class="fil0" width="1880.92" height="1880.91" rx="250.79" ry="250.79"/>
+  <g id="_2825509304608">
+   <path class="fil1" d="M1179.51 786.72l-69.05 245.38c-21.04,74.73 -95.16,126.13 -181.87,126.13l-170.87 0 -74.34 0 -24.8 88.13c-18.7,66.52 -2.87,132.81 44.63,186.85 47.56,54.11 115.92,83.75 193.2,83.75l265.17 0c86.71,0 160.84,-51.4 181.87,-126.13l111.87 -397.56c18.7,-66.52 2.88,-132.81 -44.62,-186.85 -47.56,-54.11 -115.93,-83.75 -193.21,-83.75l-19.96 0 -18.02 64.05z"/>
+   <line class="fil2" x1="701.42" y1="1094.18" x2="1123.22" y2= "722.67" />
+   <path class="fil1" d="M663.42 1094.18c-55.09,0 -102.48,-20.55 -136.38,-59.12 -33.91,-38.57 -44.85,-84.41 -31.49,-131.88l111.86 -397.57c13.02,-46.22 58.29,-77.62 111.92,-77.62l265.18 0c55.08,0 102.48,20.55 136.37,59.12 33.91,38.57 44.85,84.42 31.5,131.89l-29.18 103.67 74.33 0 24.8 -88.13c18.71,-66.52 2.88,-132.81 -44.63,-186.85 -47.55,-54.11 -115.92,-83.75 -193.19,-83.75l-265.18 0c-86.71,0 -160.83,51.4 -181.87,126.13l-111.87 397.56c-18.7,66.52 -2.88,132.81 44.63,186.85 47.55,54.11 115.92,83.75 193.2,83.75l19.96 0 18.04 -64.05 -38 0z"/>
+   <path class="fil1" d="M1105.18 786.72l18.04 -64.05 -72.73 64.05 -250.26 220.44 -0.02 0.01 -98.79 87.01 74.31 0 152.86 0c53.63,0 98.91,-31.4 111.92,-77.63l64.67 -229.83z"/>
+  </g>
+ </g>
+</svg>

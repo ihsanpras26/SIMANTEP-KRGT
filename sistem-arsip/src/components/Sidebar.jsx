@@ -11,6 +11,7 @@ import {
   Tag
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import logo from '../assets/favicon.svg';
 
 export function Sidebar({
   collapsed,
@@ -56,11 +57,13 @@ export function Sidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
+
+
         {/* Logo Section */}
         <div className="h-20 flex items-center px-5 border-b border-neutral-100">
           <div className={cn("flex items-center gap-3 overflow-hidden transition-all duration-300", collapsed && "justify-center w-full")}>
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-glow">
-              <Leaf size={22} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-transparent">
+              <img src={logo} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div className={cn("flex flex-col transition-opacity duration-200", collapsed ? "opacity-0 w-0 hidden" : "opacity-100")}>
               <span className="font-display font-bold text-neutral-900 text-xl leading-none tracking-tight">SIMANTEP</span>

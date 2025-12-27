@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js'; // Keeping import to avoid
 // I am replacing usage with imported `supabase` object.
 // So I can remove `createClient` import if I want.
 // But let's check if I can just remove the line.
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAppStore from './store/useAppStore';
 import { getArsipStatus } from './utils/statusUtils';
@@ -34,6 +34,23 @@ import { Modal, ModalHeader, ModalTitle, ModalContent } from './components/ui';
 
 // Styles
 import './animations.css';
+
+// Assets
+import logo from './assets/favicon.svg';
+import img1 from './assets/krgt (1).jpeg';
+import img2 from './assets/krgt (2).jpeg';
+import img3 from './assets/krgt (3).jpeg';
+import img4 from './assets/krgt (4).jpeg';
+import img5 from './assets/krgt (5).jpeg';
+import img6 from './assets/krgt (6).jpeg';
+import img7 from './assets/krgt (7).jpeg';
+import img8 from './assets/krgt (8).jpeg';
+import img9 from './assets/krgt (9).jpeg';
+import img10 from './assets/krgt (10).jpeg';
+import img11 from './assets/krgt (11).jpeg';
+import img12 from './assets/krgt (12).jpeg';
+
+const backgroundImages = [img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12];
 
 // --- Konfigurasi Supabase Moved to utils/supabaseClient.js ---
 
@@ -312,12 +329,101 @@ export default function App() {
     // --- Main Render ---
     if (!supabase) return <ConfigurationMessage />;
 
+    // Slideshow Logic
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    useEffect(() => {
+        if (session) return; // Don't run slideshow if logged in
+
+        const timer = setInterval(() => {
+            setCurrentSlide((prev) => (prev + 1) % backgroundImages.length);
+        }, 5000);
+
+        return () => clearInterval(timer);
+    }, [session]);
+
     if (!session) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-                <div className="bg-white p-8 rounded-2xl shadow-xl border border-neutral-100 w-full max-w-md animate-scale-in">
-                    <h2 className="text-2xl font-display font-bold text-neutral-900 mb-6 text-center">Login Admin</h2>
-                    <AdminLoginForm onSubmit={handleAdminLogin} />
+            <div style={{ width: 'calc(100vw / 0.8)', height: 'calc(100vh / 0.8)' }} className="flex bg-white overflow-hidden fixed top-0 left-0">
+                {/* Left Side - Slideshow */}
+                <div className="hidden lg:block w-3/5 relative overflow-hidden bg-primary-950">
+                    <AnimatePresence initial={false}>
+                        <motion.img
+                            key={currentSlide}
+                            src={backgroundImages[currentSlide]}
+                            alt="UPT Kebun Raya Gunung Tidar"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{
+                                duration: 1.5,
+                                ease: [0.4, 0, 0.2, 1]
+                            }}
+                            className="absolute inset-0 w-full h-full object-cover"
+                        />
+                    </AnimatePresence>
+
+                    {/* Overlay Gradient - Clean Bottom Only */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary-950/90 via-primary-950/30 to-transparent" />
+
+                    {/* Text Content */}
+                    <div className="absolute inset-0 flex flex-col justify-end p-12">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5, duration: 0.8 }}
+                            className="text-white max-w-2xl"
+                        >
+                            <h1 className="text-4xl font-display font-bold mb-4">Sistem Informasi Manajemen Arsip Terpadu</h1>
+                            <p className="text-lg text-neutral-200 opacity-90">UPT Kebun Raya Gunung Tidar</p>
+                        </motion.div>
+                    </div>
+                </div>
+
+                {/* Right Side - Login Form */}
+                <div className="w-full lg:w-2/5 flex flex-col items-center justify-center p-8 lg:p-12 bg-white relative">
+                    {/* Mobile Background (Absolute) - Visible only on small screens */}
+                    <div className="absolute inset-0 lg:hidden z-0">
+                        <img src={img1} alt="Background" className="w-full h-full object-cover opacity-10" />
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" />
+                    </div>
+
+                    <div className="w-full max-w-md relative z-10">
+                        <div className="text-center mb-10">
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.5 }}
+                                className="inline-block p-4 rounded-3xl bg-primary-50 mb-6 shadow-glow-soft"
+                            >
+                                <img src={logo} alt="SIMANTEP Logo" className="w-16 h-16" />
+                            </motion.div>
+                            <motion.h2
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.2, duration: 0.5 }}
+                                className="text-3xl font-display font-bold text-neutral-900 mb-2"
+                            >
+                                Selamat Datang
+                            </motion.h2>
+                            <motion.p
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.3, duration: 0.5 }}
+                                className="text-neutral-500"
+                            >
+                                Silakan masuk untuk mengakses SIMANTEP
+                            </motion.p>
+                        </div>
+
+                        <AdminLoginForm onSubmit={handleAdminLogin} />
+
+                        <div className="mt-8 text-center">
+                            <p className="text-xs text-neutral-400">
+                                &copy; {new Date().getFullYear()} UPT Kebun Raya Gunung Tidar.<br />All rights reserved.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         );

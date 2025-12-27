@@ -249,11 +249,12 @@ export default function Dashboard({
                       {item.perihal}
                     </p>
                   </Tooltip>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
-                      {item.nomorArsip}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-xs text-neutral-600 font-medium">
+                      {item.nomorSurat || '-'}
                     </span>
-                    <span className="text-[10px] text-neutral-400">
+                    <span className="text-neutral-300">•</span>
+                    <span className="text-xs text-neutral-500">
                       {format(new Date(item.tanggalSurat || new Date()), 'dd MMM yyyy', { locale: id })}
                     </span>
                   </div>
