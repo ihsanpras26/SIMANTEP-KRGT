@@ -298,7 +298,11 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
                                             </td>
                                             <td className="px-4 py-3 text-neutral-700 whitespace-nowrap">
                                                 {item.row.nomor_surat || '-'}
-                                                <div className="text-xs text-neutral-400 mt-0.5">{item.row.tanggal_surat}</div>
+                                                <div className="text-xs text-neutral-400 mt-0.5">
+                                                    {item.row.tanggal_surat instanceof Date
+                                                        ? item.row.tanggal_surat.toISOString().split('T')[0]
+                                                        : item.row.tanggal_surat}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3 text-neutral-700 max-w-xs truncate" title={item.row.perihal}>
                                                 {item.row.perihal}
