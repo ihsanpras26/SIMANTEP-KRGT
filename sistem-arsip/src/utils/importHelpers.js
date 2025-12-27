@@ -10,18 +10,14 @@ export const generateTemplate = () => {
             tanggal_surat: '2024-12-19',
             perihal: 'Contoh Surat Keputusan',
             kode_klasifikasi: 'ADM-001',
-            keterangan: 'Keterangan opsional',
-            google_drive_link: 'https://drive.google.com/file/d/xxxxx/view',
-            labels: 'Magang,Urgent'
+            google_drive_link: 'https://drive.google.com/file/d/xxxxx/view'
         },
         {
             nomor_surat: '002/ADM/2024',
             tanggal_surat: '2024-12-18',
             perihal: 'Contoh Undangan Rapat',
             kode_klasifikasi: 'ADM-002',
-            keterangan: '',
-            google_drive_link: '',
-            labels: 'Administrasi'
+            google_drive_link: ''
         }
     ];
 
@@ -32,11 +28,9 @@ export const generateTemplate = () => {
     ws['!cols'] = [
         { wch: 20 }, // nomor_surat
         { wch: 15 }, // tanggal_surat
-        { wch: 30 }, // perihal
+        { wch: 40 }, // perihal
         { wch: 20 }, // kode_klasifikasi
-        { wch: 30 }, // keterangan
-        { wch: 40 }, // google_drive_link
-        { wch: 20 }  // labels
+        { wch: 45 }  // google_drive_link
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Template Arsip');
@@ -115,20 +109,6 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
         }
     }
 
-    // 5. Labels (optional)
-    const labelIds = [];
-    if (row.labels && row.labels.trim()) {
-        const labelNames = row.labels.split(',').map(l => l.trim()).filter(Boolean);
-        for (const name of labelNames) {
-            const label = labelMap.get(name.toLowerCase());
-            if (!label) {
-                errors.push(`Label "${name}" tidak ditemukan`);
-            } else {
-                labelIds.push(label.id);
-            }
-        }
-    }
-
     // Get klasifikasi ID
     const klasifikasi = klasifikasiMap.get(row.kode_klasifikasi?.toUpperCase().trim());
 
@@ -137,8 +117,7 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
         row,
         valid: errors.length === 0,
         errors,
-        klasifikasiId: klasifikasi?.id,
-        labelIds
+        klasifikasiId: klasifikasi?.id
     };
 };
 
@@ -178,7 +157,7 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
     };
 
     for (let i = 0; i < validRows.length; i++) {
-        const { row, klasifikasiId, labelIds } = validRows[i];
+        const { row, klasifikasiId } = validRows[i];
 
         try {
             // Calculate retention date (5 years from letter date)
@@ -186,7 +165,7 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
             const retensiDate = new Date(suratDate);
             retensiDate.setFullYear(retensiDate.getFullYear() + 5);
 
-            // 1. Insert arsip
+            // Insert arsip
             const { data: arsip, error: arsipError } = await supabase
                 .from('arsip')
                 .insert({
@@ -194,7 +173,6 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
                     tanggalSurat: row.tanggal_surat,
                     perihal: row.perihal.trim(),
                     kodeKlasifikasi: row.kode_klasifikasi.trim(),
-                    keterangan: row.keterangan?.trim() || null,
                     googleDriveLink: row.google_drive_link?.trim() || null,
                     tanggalRetensi: retensiDate.toISOString(),
                     created_at: new Date().toISOString()
@@ -203,20 +181,6 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
                 .single();
 
             if (arsipError) throw arsipError;
-
-            // 2. Insert labels if any
-            if (labelIds.length > 0 && arsip) {
-                const arsipLabels = labelIds.map(labelId => ({
-                    arsip_id: arsip.id,
-                    label_id: labelId
-                }));
-
-                const { error: labelsError } = await supabase
-                    .from('arsip_labels')
-                    .insert(arsipLabels);
-
-                if (labelsError) throw labelsError;
-            }
 
             results.success++;
         } catch (error) {
