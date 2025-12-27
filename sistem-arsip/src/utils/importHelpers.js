@@ -1,6 +1,44 @@
 import * as XLSX from 'xlsx';
 
 /**
+ * Helper to parse various date formats from Excel
+ * Handles: Serial numbers (46000), ISO strings, Date objects
+ */
+const parseExcelDate = (dateVal) => {
+    if (!dateVal) return null;
+
+    // If it's already a Date object
+    if (dateVal instanceof Date) {
+        return isNaN(dateVal.getTime()) ? null : dateVal;
+    }
+
+    // If it's a number or numeric string (Excel serial date)
+    // Excel serial date 1 = 1900-01-01
+    // JS uses 1970-01-01. Diff is 25569 days.
+    if (typeof dateVal === 'number' || (!isNaN(dateVal) && !isNaN(parseFloat(dateVal)))) {
+        const serial = parseFloat(dateVal);
+        // Basic check to avoid treating regular numbers (like IDs) as dates if they are too small/large
+        // 10000 = 1927, 60000 = 2064. Reasonable range for this app?
+        if (serial > 10000 && serial < 60000) {
+            const utc_days = Math.floor(serial - 25569);
+            const utc_value = utc_days * 86400;
+            const date_info = new Date(utc_value * 1000);
+
+            // Adjust for timezone offset if needed, but usually UTC calculation is safest for dates
+            // Excel dates are technically "local" without timezone, so we output as local date at 00:00
+            // But simple JS Date(ms) creates local time.
+            return date_info;
+        }
+    }
+
+    // Try parsing as standard string
+    const date = new Date(dateVal);
+    if (!isNaN(date.getTime())) return date;
+
+    return null;
+};
+
+/**
  * Generate Excel template for bulk import
  */
 export const generateTemplate = () => {
@@ -47,6 +85,7 @@ export const parseFile = async (file) => {
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target.result);
+                // cellDates: true helps, but we still need robust fallback
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet);
@@ -84,9 +123,9 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
     if (!row.tanggal_surat) {
         errors.push('Tanggal surat wajib diisi');
     } else {
-        const tanggal = new Date(row.tanggal_surat);
-        if (isNaN(tanggal.getTime())) {
-            errors.push('Format tanggal tidak valid (gunakan YYYY-MM-DD)');
+        const tanggal = parseExcelDate(row.tanggal_surat);
+        if (!tanggal) {
+            errors.push(`Format tanggal tidak valid (${row.tanggal_surat}). Gunakan YYYY-MM-DD`);
         } else if (tanggal > new Date()) {
             errors.push('Tanggal surat tidak boleh di masa depan');
         }
@@ -161,7 +200,12 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
 
         try {
             // Calculate retention date (5 years from letter date)
-            const suratDate = new Date(row.tanggal_surat);
+            const suratDate = parseExcelDate(row.tanggal_surat);
+
+            if (!suratDate) {
+                throw new Error(`Tanggal surat tidak valid: ${row.tanggal_surat}`);
+            }
+
             const retensiDate = new Date(suratDate);
             retensiDate.setFullYear(retensiDate.getFullYear() + 5);
 
