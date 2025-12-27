@@ -37,7 +37,7 @@ import ContextMenu from './ContextMenu';
 import RowActionsMenu from './RowActionsMenu';
 import Pagination from './Pagination';
 import EmptyState from './EmptyState';
-import { Modal, ModalHeader, ModalTitle, ModalContent } from './ui';
+import { Modal, ModalHeader, ModalTitle, ModalContent, Button } from './ui';
 import useAppStore from '../store/useAppStore';
 import { useArsip } from '../hooks/useArsip';
 import { useKlasifikasi } from '../hooks/useKlasifikasi';
@@ -276,14 +276,14 @@ export default function ArsipList({
           </div>
 
           {/* Primary CTA Button */}
-          <button
+          <Button
+            size="lg"
             onClick={() => setEditingArsip({})}
-            className="flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
           >
             <Plus size={20} strokeWidth={2.5} />
             <span className="hidden sm:inline">Tambah Arsip</span>
             <span className="sm:hidden">Tambah</span>
-          </button>
+          </Button>
         </div>
 
         {/* Action Buttons - Reorganized by Function */}

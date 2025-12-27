@@ -24,7 +24,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 import LabelManager from './LabelManager';
-import { Modal, ModalHeader, ModalTitle, ModalContent } from './ui';
+import { Modal, ModalHeader, ModalTitle, ModalContent, Button } from './ui';
 import useAppStore from '../store/useAppStore';
 import { useArsip } from '../hooks/useArsip';
 
@@ -109,13 +109,15 @@ export default function LabelDashboard({
                         />
                     </div>
 
-                    <button
+                    <Button
+                        variant="default"
+                        size="default"
                         onClick={() => setShowLabelManager(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white border-2 border-primary-300 text-primary-700 rounded-xl hover:bg-primary-50 hover:border-primary-400 transition-all shadow-sm hover:shadow font-semibold"
+                        className="w-full sm:w-auto"
                     >
                         <Tag size={18} />
                         <span>Kelola Label</span>
-                    </button>
+                    </Button>
                 </div>
             </div>
 
