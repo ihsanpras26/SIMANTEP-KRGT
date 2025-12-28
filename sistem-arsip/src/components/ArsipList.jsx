@@ -18,7 +18,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Upload
+  Upload,
+  FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -74,6 +75,7 @@ export default function ArsipList({
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportMode, setBulkImportMode] = useState('create'); // 'create' | 'update'
   const filterButtonRef = useRef(null);
 
   // Read label filter from URL params
@@ -315,11 +317,25 @@ export default function ArsipList({
 
           {/* Group 2: Data Actions */}
           <button
-            onClick={() => setShowBulkImport(true)}
+            onClick={() => {
+              setBulkImportMode('create');
+              setShowBulkImport(true);
+            }}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
           >
             <Upload size={18} />
             <span className="hidden sm:inline">Import</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setBulkImportMode('update');
+              setShowBulkImport(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
+          >
+            <FileSpreadsheet size={18} />
+            <span className="hidden sm:inline">Edit Massal</span>
           </button>
 
           <button
@@ -794,6 +810,22 @@ export default function ArsipList({
       </AnimatePresence>
 
       {/* Modals */}
+      {showBulkImport && (
+        <BulkImportModal
+          isOpen={true}
+          onClose={() => {
+            setShowBulkImport(false);
+            setBulkImportMode('create'); // Reset to default
+          }}
+          onSuccess={() => {
+            // Refresh data
+            window.location.reload(); // Simple refresh to show new data, or refetch react query
+          }}
+          mode={bulkImportMode}
+          supabase={supabase}
+        />
+      )}
+
       <Modal isOpen={showLabelManager} onClose={() => setShowLabelManager(false)} size="lg">
         <ModalHeader onClose={() => setShowLabelManager(false)}>
           <ModalTitle>Kelola Label</ModalTitle>
@@ -850,17 +882,7 @@ export default function ArsipList({
         )
       }
 
-      {/* Bulk Import Modal */}
-      <BulkImportModal
-        supabase={supabase}
-        isOpen={showBulkImport}
-        onClose={() => setShowBulkImport(false)}
-        showNotification={showNotification}
-        onSuccess={() => {
-          // Refresh data will happen automatically via React Query invalidation
-          // Or we can call refetch if needed
-        }}
-      />
+
 
     </div >
   );

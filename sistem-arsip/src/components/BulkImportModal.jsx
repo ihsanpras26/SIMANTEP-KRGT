@@ -18,13 +18,16 @@ import {
     importValidRows
 } from '../utils/importHelpers';
 
-export default function BulkImportModal({ supabase, isOpen, onClose, showNotification, onSuccess }) {
-    const { data: klasifikasiData } = useKlasifikasi();
-    const { data: labelsData } = useLabels();
+export default function BulkImportModal({ isOpen, onClose, onSuccess, mode = 'create', supabase }) { // mode: 'create' | 'update'
+    // Use specific hooks for data
+    const { data: klasifikasiQuery } = useKlasifikasi();
+    const { data: labelsQuery } = useLabels();
 
-    const klasifikasiList = klasifikasiData || [];
-    const labelsList = labelsData || [];
+    // Fallback if hooks return undefined data initially
+    const klasifikasiList = klasifikasiQuery || [];
+    const labelsList = labelsQuery || [];
 
+    // Local states
     const [file, setFile] = useState(null);
     const [parsedData, setParsedData] = useState([]);
     const [validationResults, setValidationResults] = useState([]);
@@ -33,6 +36,7 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
     const [importProgress, setImportProgress] = useState(0);
     const [importResults, setImportResults] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = React.useRef(null); // Ensure ref is created
 
     const handleFileSelect = async (selectedFile) => {
         if (!selectedFile) return;
@@ -48,7 +52,10 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
             !selectedFile.name.endsWith('.xlsx') &&
             !selectedFile.name.endsWith('.xls') &&
             !selectedFile.name.endsWith('.csv')) {
-            showNotification('Format file tidak didukung. Gunakan .xlsx, .xls, atau .csv', 'error');
+            // showNotification('Format file tidak didukung. Gunakan .xlsx, .xls, atau .csv', 'error');
+            // Notification handling might be external or unused here if not passed.
+            // Let's use alert or console if showNotification is missing, or rely on passed prop if any.
+            alert('Format file tidak didukung. Gunakan .xlsx, .xls, atau .csv');
             return;
         }
 
@@ -60,7 +67,7 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
             const data = await parseFile(selectedFile);
 
             if (data.length === 0) {
-                showNotification('File kosong. Pastikan ada data untuk diimport', 'error');
+                alert('File kosong. Pastikan ada data untuk diimport');
                 setFile(null);
                 return;
             }
@@ -69,23 +76,13 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
 
             // Auto-validate
             setIsValidating(true);
-            const results = await validateAllRows(data, supabase, klasifikasiList, labelsList);
+            const results = await validateAllRows(data, supabase, klasifikasiList, labelsList, mode);
             setValidationResults(results);
             setIsValidating(false);
 
-            const validCount = results.filter(r => r.valid).length;
-            const invalidCount = results.length - validCount;
-
-            if (invalidCount > 0) {
-                showNotification(
-                    `${validCount} baris valid, ${invalidCount} baris ada error. Periksa detail di preview.`,
-                    'warning'
-                );
-            } else {
-                showNotification(`Semua ${validCount} baris valid dan siap diimport!`, 'success');
-            }
         } catch (error) {
-            showNotification(error.message, 'error');
+            console.error(error);
+            alert(error.message);
             setFile(null);
         }
     };
@@ -103,7 +100,7 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
         const validRows = validationResults.filter(r => r.valid);
 
         if (validRows.length === 0) {
-            showNotification('Tidak ada data valid untuk diimport', 'error');
+            alert('Tidak ada data valid untuk diimport');
             return;
         }
 
@@ -120,16 +117,11 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
             setImportResults(results);
 
             if (results.success > 0) {
-                showNotification(
-                    `Import selesai! ${results.success} berhasil, ${results.failed} gagal`,
-                    results.failed === 0 ? 'success' : 'warning'
-                );
                 if (onSuccess) onSuccess();
-            } else {
-                showNotification('Semua data gagal diimport', 'error');
             }
         } catch (error) {
-            showNotification(`Import gagal: ${error.message}`, 'error');
+            console.error(error);
+            alert(`Import gagal: ${error.message}`);
         } finally {
             setIsImporting(false);
         }
@@ -141,6 +133,9 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
         setValidationResults([]);
         setImportResults(null);
         setImportProgress(0);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const validCount = validationResults.filter(r => r.valid).length;
@@ -154,9 +149,13 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
                         <FileSpreadsheet size={20} className="text-primary-600" />
                     </div>
                     <div>
-                        <ModalTitle>Import Arsip Massal</ModalTitle>
+                        <ModalTitle>
+                            {mode === 'update' ? 'Edit Arsip Massal' : 'Import Arsip Massal'}
+                        </ModalTitle>
                         <ModalDescription>
-                            Upload file Excel atau CSV untuk menambahkan banyak arsip sekaligus
+                            {mode === 'update'
+                                ? 'Upload Excel untuk memperbarui data berdasarkan Nomor Surat'
+                                : 'Upload file Excel atau CSV untuk menambahkan banyak arsip sekaligus'}
                         </ModalDescription>
                     </div>
                 </div>
@@ -199,7 +198,7 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
                                 ? "border-primary-500 bg-primary-50"
                                 : "border-neutral-200 hover:border-primary-400 hover:bg-neutral-50"
                         )}
-                        onClick={() => document.getElementById('file-upload').click()}
+                        onClick={() => fileInputRef.current?.click()}
                     >
                         <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-400">
                             <Upload size={24} />
@@ -215,13 +214,13 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
                             accept=".xlsx,.xls,.csv"
                             onChange={(e) => handleFileSelect(e.target.files[0])}
                             className="hidden"
-                            id="file-upload"
+                            ref={fileInputRef}
                         />
                         <button
                             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:border-primary-500 hover:text-primary-600 text-sm font-medium transition-all shadow-sm"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                document.getElementById('file-upload').click();
+                                fileInputRef.current?.click();
                             }}
                         >
                             Pilih File
@@ -268,69 +267,96 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-neutral-50 border-b border-neutral-200 z-10">
                                     <tr>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">#</th>
+                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider w-10">#</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Status</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">No. Surat</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Perihal</th>
+                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Pengirim & Tujuan</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Error</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-100">
-                                    {validationResults.map((item, i) => (
-                                        <tr
-                                            key={i}
-                                            className={cn(
-                                                "transition-colors hover:bg-neutral-50/80",
-                                                !item.valid && "bg-red-50/40"
-                                            )}
-                                        >
-                                            <td className="px-4 py-3 text-neutral-500 w-10">{i + 1}</td>
-                                            <td className="px-4 py-3 w-16">
-                                                {item.valid ? (
-                                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-600">
-                                                        <Check size={14} />
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600">
-                                                        <AlertCircle size={14} />
-                                                    </span>
+                                    {validationResults.map((item, i) => {
+                                        let statusBadge;
+                                        if (!item.valid) {
+                                            statusBadge = (
+                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600">
+                                                    <AlertCircle size={14} />
+                                                </span>
+                                            );
+                                        } else if (item.row.isUpdate) {
+                                            statusBadge = (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-bold border border-blue-200">
+                                                    UPDATE
+                                                </span>
+                                            );
+                                        } else {
+                                            statusBadge = (
+                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-600">
+                                                    <Check size={14} />
+                                                </span>
+                                            );
+                                        }
+
+                                        return (
+                                            <tr
+                                                key={i}
+                                                className={cn(
+                                                    "transition-colors hover:bg-neutral-50/80",
+                                                    !item.valid && "bg-red-50/40",
+                                                    item.row.isUpdate && item.valid && "bg-blue-50/20"
                                                 )}
-                                            </td>
-                                            <td className="px-4 py-3 text-neutral-700 whitespace-nowrap">
-                                                {item.row.nomor_surat || '-'}
-                                                <div className="text-xs text-neutral-400 mt-0.5">
-                                                    {item.row.tanggal_surat instanceof Date
-                                                        ? item.row.tanggal_surat.toISOString().split('T')[0]
-                                                        : item.row.tanggal_surat}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-neutral-700 max-w-xs truncate" title={item.row.perihal}>
-                                                {item.row.perihal}
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-neutral-100 text-neutral-600 border border-neutral-200">
-                                                        {item.row.kode_klasifikasi || 'No Kode'}
-                                                    </span>
-                                                    {item.row.google_drive_link && (
-                                                        <span className="text-[10px] text-green-600 flex items-center gap-0.5">
-                                                            <Check size={10} /> Drive
+                                            >
+                                                <td className="px-4 py-3 text-neutral-500 w-10">{i + 1}</td>
+                                                <td className="px-4 py-3 w-16 text-center">
+                                                    {statusBadge}
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-700 whitespace-nowrap">
+                                                    {item.row.nomor_surat || '-'}
+                                                    <div className="text-xs text-neutral-400 mt-0.5">
+                                                        {item.row.tanggal_surat instanceof Date
+                                                            ? item.row.tanggal_surat.toISOString().split('T')[0]
+                                                            : item.row.tanggal_surat}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-700 max-w-xs truncate" title={item.row.perihal}>
+                                                    {item.row.perihal}
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-neutral-100 text-neutral-600 border border-neutral-200">
+                                                            {item.row.kode_klasifikasi || 'No Kode'}
                                                         </span>
+                                                        {item.row.google_drive_link && (
+                                                            <span className="text-[10px] text-green-600 flex items-center gap-0.5">
+                                                                <Check size={10} /> Drive
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-700 max-w-xs">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-medium text-neutral-900 truncate" title={item.row.pengirim}>
+                                                            {item.row.pengirim || '-'}
+                                                        </span>
+                                                        <span className="text-[10px] text-neutral-500 truncate flex items-center gap-1" title={item.row.tujuan_surat}>
+                                                            <span className="opacity-70">To:</span> {item.row.tujuan_surat || '-'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {item.errors.length > 0 && (
+                                                        <ul className="text-xs text-red-600 space-y-1">
+                                                            {item.errors.map((err, j) => (
+                                                                <li key={j} className="flex items-start gap-1">
+                                                                    <span className="mt-0.5">•</span>
+                                                                    <span>{err}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {item.errors.length > 0 && (
-                                                    <ul className="text-xs text-red-600 space-y-1">
-                                                        {item.errors.map((err, j) => (
-                                                            <li key={j} className="flex items-start gap-1">
-                                                                <span className="mt-0.5">•</span>
-                                                                <span>{err}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -410,7 +436,7 @@ export default function BulkImportModal({ supabase, isOpen, onClose, showNotific
                                 ) : (
                                     <>
                                         <Upload size={16} />
-                                        Import {validCount} Data
+                                        {mode === 'update' ? 'Mulai Update' : `Import ${validCount} Data`}
                                     </>
                                 )}
                             </button>

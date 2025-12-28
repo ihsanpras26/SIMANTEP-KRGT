@@ -48,6 +48,8 @@ export const generateTemplate = () => {
             tanggal_surat: '2024-12-19',
             perihal: 'Contoh Surat Keputusan',
             kode_klasifikasi: 'ADM-001',
+            pengirim: 'Dinas Pendidikan',
+            tujuan_surat: 'Kepala Sekolah',
             google_drive_link: 'https://drive.google.com/file/d/xxxxx/view'
         },
         {
@@ -55,6 +57,8 @@ export const generateTemplate = () => {
             tanggal_surat: '2024-12-18',
             perihal: 'Contoh Undangan Rapat',
             kode_klasifikasi: 'ADM-002',
+            pengirim: '',
+            tujuan_surat: '',
             google_drive_link: ''
         }
     ];
@@ -68,6 +72,8 @@ export const generateTemplate = () => {
         { wch: 15 }, // tanggal_surat
         { wch: 40 }, // perihal
         { wch: 20 }, // kode_klasifikasi
+        { wch: 20 }, // pengirim
+        { wch: 20 }, // tujuan_surat
         { wch: 45 }  // google_drive_link
     ];
 
@@ -107,6 +113,11 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
     const errors = [];
 
     // 1. Nomor Surat (optional but must be unique if provided)
+    // mode: 'create' (default) -> Error if exists
+    // mode: 'update' -> Warning/Info if exists (will update), OK if new (will insert)
+    let updateTargetId = null;
+    let isUpdate = false;
+
     if (row.nomor_surat && row.nomor_surat.trim()) {
         const { data: existing } = await supabase
             .from('arsip')
@@ -115,13 +126,19 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
             .maybeSingle();
 
         if (existing) {
-            errors.push('Nomor surat sudah ada di database');
+            if (row.mode === 'create') {
+                errors.push('Nomor surat sudah ada di database');
+            } else {
+                // Update mode: This is valid, we interpret it as an UPDATE
+                updateTargetId = existing.id;
+                isUpdate = true;
+            }
         }
     }
 
-    // 2. Tanggal Surat (required)
+    // 2. Tanggal Surat (required for Create, optional for Update)
     if (!row.tanggal_surat) {
-        errors.push('Tanggal surat wajib diisi');
+        if (!isUpdate) errors.push('Tanggal surat wajib diisi');
     } else {
         const tanggal = parseExcelDate(row.tanggal_surat);
         if (!tanggal) {
@@ -131,17 +148,17 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
         }
     }
 
-    // 3. Perihal (required)
-    if (!row.perihal || !row.perihal.trim()) {
+    // 3. Perihal (required for Create, optional for Update)
+    if ((!row.perihal || !row.perihal.trim()) && !isUpdate) {
         errors.push('Perihal wajib diisi');
-    } else if (row.perihal.trim().length < 3) {
+    } else if (row.perihal && row.perihal.trim().length < 3) {
         errors.push('Perihal minimal 3 karakter');
     }
 
-    // 4. Kode Klasifikasi (required)
-    if (!row.kode_klasifikasi || !row.kode_klasifikasi.trim()) {
+    // 4. Kode Klasifikasi (required for Create, optional for Update)
+    if ((!row.kode_klasifikasi || !row.kode_klasifikasi.trim()) && !isUpdate) {
         errors.push('Kode klasifikasi wajib diisi');
-    } else {
+    } else if (row.kode_klasifikasi && row.kode_klasifikasi.trim()) {
         const klasifikasi = klasifikasiMap.get(row.kode_klasifikasi.toUpperCase().trim());
         if (!klasifikasi) {
             errors.push(`Kode klasifikasi "${row.kode_klasifikasi}" tidak ditemukan`);
@@ -156,14 +173,16 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
         row,
         valid: errors.length === 0,
         errors,
-        klasifikasiId: klasifikasi?.id
+        klasifikasiId: klasifikasi?.id,
+        isUpdate,
+        updateTargetId
     };
 };
 
 /**
  * Batch validate all rows
  */
-export const validateAllRows = async (rows, supabase, klasifikasiList, labelsList) => {
+export const validateAllRows = async (rows, supabase, klasifikasiList, labelsList, mode = 'create') => {
     // Create maps for faster lookup
     const klasifikasiMap = new Map(
         klasifikasiList.map(k => [k.kode.toUpperCase(), k])
@@ -176,7 +195,9 @@ export const validateAllRows = async (rows, supabase, klasifikasiList, labelsLis
     // Validate each row
     const validationResults = [];
     for (let i = 0; i < rows.length; i++) {
-        const result = await validateRow(rows[i], i, supabase, klasifikasiMap, labelMap);
+        // Inject mode into row for validateRow to use
+        const rowWithMode = { ...rows[i], mode };
+        const result = await validateRow(rowWithMode, i, supabase, klasifikasiMap, labelMap);
         validationResults.push(result);
     }
 
@@ -196,33 +217,61 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
     };
 
     for (let i = 0; i < validRows.length; i++) {
-        const { row, klasifikasiId } = validRows[i];
+        const { row, klasifikasiId, isUpdate, updateTargetId } = validRows[i];
 
         try {
-            // Calculate retention date (5 years from letter date)
-            const suratDate = parseExcelDate(row.tanggal_surat);
+            const payload = {};
 
-            if (!suratDate) {
-                throw new Error(`Tanggal surat tidak valid: ${row.tanggal_surat}`);
+            // Helper to conditionally add fields
+            if (row.nomor_surat?.trim()) payload.nomorSurat = row.nomor_surat.trim();
+
+            if (row.perihal?.trim()) payload.perihal = row.perihal.trim();
+
+            if (row.kode_klasifikasi?.trim()) payload.kodeKlasifikasi = row.kode_klasifikasi.trim();
+
+            if (row.pengirim?.trim()) payload.pengirim = row.pengirim.trim();
+
+            if (row.tujuan_surat?.trim()) payload.tujuanSurat = row.tujuan_surat.trim();
+
+            if (row.google_drive_link?.trim()) payload.googleDriveLink = row.google_drive_link.trim();
+
+            if (row.tanggal_surat) {
+                const suratDate = parseExcelDate(row.tanggal_surat);
+                if (!suratDate) throw new Error(`Tanggal surat tidak valid: ${row.tanggal_surat}`);
+
+                payload.tanggalSurat = suratDate.toISOString().split('T')[0];
+
+                // Recalculate retention only if date changed or on insert
+                const retensiDate = new Date(suratDate);
+                retensiDate.setFullYear(retensiDate.getFullYear() + 5);
+                payload.tanggalRetensi = retensiDate.toISOString();
             }
 
-            const retensiDate = new Date(suratDate);
-            retensiDate.setFullYear(retensiDate.getFullYear() + 5);
+            let query;
+            if (isUpdate && updateTargetId) {
+                // UPDATE - Only update fields present in payload
+                query = supabase
+                    .from('arsip')
+                    .update({
+                        ...payload,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', updateTargetId);
+            } else {
+                // INSERT - Validate required fields again just in case (though validateRow handles it)
+                if (!payload.tanggalSurat) throw new Error("Tanggal surat wajib untuk data baru");
+                if (!payload.perihal) throw new Error("Perihal wajib untuk data baru");
+                if (!payload.kodeKlasifikasi) throw new Error("Kode klasifikasi wajib untuk data baru");
 
-            // Insert arsip
-            const { data: arsip, error: arsipError } = await supabase
-                .from('arsip')
-                .insert({
-                    nomorSurat: row.nomor_surat?.trim() || null,
-                    tanggalSurat: suratDate.toISOString().split('T')[0],
-                    perihal: row.perihal.trim(),
-                    kodeKlasifikasi: row.kode_klasifikasi.trim(),
-                    googleDriveLink: row.google_drive_link?.trim() || null,
-                    tanggalRetensi: retensiDate.toISOString(),
-                    created_at: new Date().toISOString()
-                })
-                .select()
-                .single();
+                query = supabase
+                    .from('arsip')
+                    .insert({
+                        ...payload,
+                        created_at: new Date().toISOString()
+                    });
+            }
+
+            const { error: arsipError } = await query.select().single();
 
             if (arsipError) throw arsipError;
 
