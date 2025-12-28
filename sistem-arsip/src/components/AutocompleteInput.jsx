@@ -3,11 +3,11 @@ import { Clock, Search, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 
-const AutocompleteInput = ({ 
-  suggestions = [], 
-  value, 
-  onChange, 
-  placeholder, 
+const AutocompleteInput = ({
+  suggestions = [],
+  value,
+  onChange,
+  placeholder,
   className,
   icon: Icon,
   onSelect,
@@ -20,9 +20,9 @@ const AutocompleteInput = ({
 
   useEffect(() => {
     if (value) {
-      const filtered = suggestions.filter(item => 
+      const filtered = suggestions.filter(item =>
         typeof item === 'string' &&
-        item.toLowerCase().includes(value.toLowerCase()) && 
+        item.toLowerCase().includes(value.toLowerCase()) &&
         item.toLowerCase() !== value.toLowerCase()
       ).slice(0, 5);
       setFilteredSuggestions(filtered);
@@ -47,13 +47,13 @@ const AutocompleteInput = ({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex(prev => 
+        setHighlightedIndex(prev =>
           prev < filteredSuggestions.length - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setHighlightedIndex(prev => 
+        setHighlightedIndex(prev =>
           prev > 0 ? prev - 1 : filteredSuggestions.length - 1
         );
         break;
@@ -111,6 +111,7 @@ const AutocompleteInput = ({
             {filteredSuggestions.map((suggestion, index) => (
               <button
                 key={index}
+                type="button"
                 onClick={() => {
                   if (onSelect) {
                     onSelect(suggestion);
