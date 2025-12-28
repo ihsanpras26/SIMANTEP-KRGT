@@ -284,7 +284,7 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess, mode = 'cr
                                                     <AlertCircle size={14} />
                                                 </span>
                                             );
-                                        } else if (item.row.isUpdate) {
+                                        } else if (item.isUpdate) {
                                             statusBadge = (
                                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-bold border border-blue-200">
                                                     UPDATE
@@ -304,7 +304,7 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess, mode = 'cr
                                                 className={cn(
                                                     "transition-colors hover:bg-neutral-50/80",
                                                     !item.valid && "bg-red-50/40",
-                                                    item.row.isUpdate && item.valid && "bg-blue-50/20"
+                                                    item.isUpdate && item.valid && "bg-blue-50/20"
                                                 )}
                                             >
                                                 <td className="px-4 py-3 text-neutral-500 w-10">{i + 1}</td>
@@ -314,9 +314,13 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess, mode = 'cr
                                                 <td className="px-4 py-3 text-neutral-700 whitespace-nowrap">
                                                     {item.row.nomor_surat || '-'}
                                                     <div className="text-xs text-neutral-400 mt-0.5">
-                                                        {item.row.tanggal_surat instanceof Date
-                                                            ? item.row.tanggal_surat.toISOString().split('T')[0]
-                                                            : item.row.tanggal_surat}
+                                                        {(() => {
+                                                            const val = item.row.tanggal_surat;
+                                                            if (!val) return null;
+                                                            if (val instanceof Date && !isNaN(val)) return val.toISOString().split('T')[0];
+                                                            // Fallback for objects that look like dates or raw strings
+                                                            return String(val);
+                                                        })()}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-neutral-700 max-w-xs truncate" title={item.row.perihal}>
