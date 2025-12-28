@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Save,
   X,
@@ -32,6 +33,7 @@ export default function ArsipForm({
   onFinish,
   showNotification
 }) {
+  const queryClient = useQueryClient();
   // Fetch ALL data for autocomplete suggestions
   const { data: arsipData } = useArsip({ page: 'all', pageSize: 10000 });
   const { data: klasifikasiData } = useKlasifikasi();
@@ -269,6 +271,10 @@ export default function ArsipForm({
       }
 
       toast.success(arsipToEdit ? 'Arsip berhasil diperbarui' : 'Arsip baru berhasil ditambahkan');
+
+      // Explicitly invalidate queries to force refresh
+      await queryClient.invalidateQueries({ queryKey: ['arsip'] });
+
       onFinish();
     } catch (error) {
       console.error('Error saving arsip:', error);
@@ -327,9 +333,16 @@ export default function ArsipForm({
   }).filter(Boolean);
   const tujuanSuggestions = [...new Set(allTujuan)];
 
+  const handleFormKeyDown = (e) => {
+    // Prevent implicit submission on Enter key
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
 
         {/* Section 1: Primary Information */}
         <div className="bg-white rounded-2xl border-2 border-neutral-200 p-6 md:p-8 shadow-sm">
