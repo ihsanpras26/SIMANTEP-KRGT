@@ -90,7 +90,7 @@ export default function ArsipList({
   }, [labelFromUrl]);
 
   // React Query Hooks (Server-side Pagination)
-  const { data: arsipQueryData, isLoading: arsipLoading, isPlaceholderData } = useArsip({
+  const { data: arsipQueryData, isLoading: arsipLoading, isPlaceholderData, refetch } = useArsip({
     page: currentPage,
     pageSize: itemsPerPage,
     searchTerm,
@@ -819,7 +819,7 @@ export default function ArsipList({
           }}
           onSuccess={() => {
             // Refresh data
-            window.location.reload(); // Simple refresh to show new data, or refetch react query
+            refetch();
           }}
           mode={bulkImportMode}
           supabase={supabase}
