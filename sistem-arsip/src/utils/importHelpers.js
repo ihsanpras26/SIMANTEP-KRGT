@@ -118,11 +118,12 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
     let updateTargetId = null;
     let isUpdate = false;
 
-    if (row.nomor_surat && row.nomor_surat.trim()) {
+    const nomorSurat = row.nomor_surat ? String(row.nomor_surat).trim() : '';
+    if (nomorSurat) {
         const { data: existing } = await supabase
             .from('arsip')
             .select('id')
-            .eq('nomorSurat', row.nomor_surat.trim())
+            .eq('nomorSurat', nomorSurat)
             .maybeSingle();
 
         if (existing) {
@@ -149,24 +150,26 @@ export const validateRow = async (row, index, supabase, klasifikasiMap, labelMap
     }
 
     // 3. Perihal (required for Create, optional for Update)
-    if ((!row.perihal || !row.perihal.trim()) && !isUpdate) {
+    const perihal = row.perihal ? String(row.perihal).trim() : '';
+    if (!perihal && !isUpdate) {
         errors.push('Perihal wajib diisi');
-    } else if (row.perihal && row.perihal.trim().length < 3) {
+    } else if (perihal && perihal.length < 3) {
         errors.push('Perihal minimal 3 karakter');
     }
 
     // 4. Kode Klasifikasi (required for Create, optional for Update)
-    if ((!row.kode_klasifikasi || !row.kode_klasifikasi.trim()) && !isUpdate) {
+    const kodeKlasifikasiInput = row.kode_klasifikasi ? String(row.kode_klasifikasi).trim() : '';
+    if (!kodeKlasifikasiInput && !isUpdate) {
         errors.push('Kode klasifikasi wajib diisi');
-    } else if (row.kode_klasifikasi && row.kode_klasifikasi.trim()) {
-        const klasifikasi = klasifikasiMap.get(row.kode_klasifikasi.toUpperCase().trim());
+    } else if (kodeKlasifikasiInput) {
+        const klasifikasi = klasifikasiMap.get(kodeKlasifikasiInput.toUpperCase());
         if (!klasifikasi) {
-            errors.push(`Kode klasifikasi "${row.kode_klasifikasi}" tidak ditemukan`);
+            errors.push(`Kode klasifikasi "${kodeKlasifikasiInput}" tidak ditemukan`);
         }
     }
 
     // Get klasifikasi ID
-    const klasifikasi = klasifikasiMap.get(row.kode_klasifikasi?.toUpperCase().trim());
+    const klasifikasi = klasifikasiMap.get(kodeKlasifikasiInput.toUpperCase());
 
     return {
         index,
@@ -223,17 +226,12 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
             const payload = {};
 
             // Helper to conditionally add fields
-            if (row.nomor_surat?.trim()) payload.nomorSurat = row.nomor_surat.trim();
-
-            if (row.perihal?.trim()) payload.perihal = row.perihal.trim();
-
-            if (row.kode_klasifikasi?.trim()) payload.kodeKlasifikasi = row.kode_klasifikasi.trim();
-
-            if (row.pengirim?.trim()) payload.pengirim = row.pengirim.trim();
-
-            if (row.tujuan_surat?.trim()) payload.tujuanSurat = row.tujuan_surat.trim();
-
-            if (row.google_drive_link?.trim()) payload.googleDriveLink = row.google_drive_link.trim();
+            if (row.nomor_surat) payload.nomorSurat = String(row.nomor_surat).trim();
+            if (row.perihal) payload.perihal = String(row.perihal).trim();
+            if (row.kode_klasifikasi) payload.kodeKlasifikasi = String(row.kode_klasifikasi).trim();
+            if (row.pengirim) payload.pengirim = String(row.pengirim).trim();
+            if (row.tujuan_surat) payload.tujuanSurat = String(row.tujuan_surat).trim();
+            if (row.google_drive_link) payload.googleDriveLink = String(row.google_drive_link).trim();
 
             if (row.tanggal_surat) {
                 const suratDate = parseExcelDate(row.tanggal_surat);
