@@ -280,7 +280,7 @@ export default function ArsipList({
           {/* Primary CTA Button */}
           <Button
             size="lg"
-            onClick={() => setEditingArsip({})}
+            onClick={() => setEditingArsip(null)}
           >
             <Plus size={20} strokeWidth={2.5} />
             <span className="hidden sm:inline">Tambah Arsip</span>

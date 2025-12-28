@@ -13,7 +13,8 @@ export default function Layout({
   onLogout,
   title = "Dashboard",
   arsipList = [],
-  setSelectedArsipDetail
+  setSelectedArsipDetail,
+  onNavigate
 }) {
   // Initialize sidebar state from localStorage
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -51,6 +52,7 @@ export default function Layout({
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onMobileClose={() => setMobileMenuOpen(false)}
         onShowInfo={() => { }} // Handle info modal trigger
+        onNavigate={onNavigate}
       />
 
       {/* Main Content Area */}

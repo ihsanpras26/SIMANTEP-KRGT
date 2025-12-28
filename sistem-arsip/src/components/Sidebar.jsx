@@ -18,7 +18,8 @@ export function Sidebar({
   mobileOpen,
   onToggle,
   onMobileClose,
-  onShowInfo
+  onShowInfo,
+  onNavigate
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export function Sidebar({
   ];
 
   const handleNavigate = (path) => {
+    if (onNavigate) onNavigate(path);
     navigate(path);
     onMobileClose();
   };

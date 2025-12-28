@@ -465,6 +465,7 @@ export default function App() {
             title={getPageTitle(location.pathname)}
             arsipList={arsipList}
             setSelectedArsipDetail={handleArsipSelect}
+            onNavigate={() => setEditingArsip(null)}
         >
             <Routes>
                 <Route path="/" element={
