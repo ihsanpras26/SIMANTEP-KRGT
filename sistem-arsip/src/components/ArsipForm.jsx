@@ -145,8 +145,7 @@ export default function ArsipForm({
         tanggalSurat: arsipToEdit.tanggalSurat ? arsipToEdit.tanggalSurat.split('T')[0] : new Date().toISOString().split('T')[0],
         kodeKlasifikasi: arsipToEdit.kodeKlasifikasi || '',
         pengirim: arsipToEdit.pengirim || '',
-        googleDriveLink: arsipToEdit.googleDriveLink || '',
-        keterangan: arsipToEdit.keterangan || ''
+        googleDriveLink: arsipToEdit.googleDriveLink || ''
       });
 
       if (arsipToEdit.tujuanSurat) {
@@ -230,6 +229,9 @@ export default function ArsipForm({
         tujuanSurat: finalTujuanList.join('; '),
         tanggalRetensi: retensiDate.toISOString()
       };
+
+      // Remove invalid columns if they exist in formData (defensive)
+      delete payload.keterangan;
 
       let arsipId;
 
