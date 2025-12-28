@@ -253,8 +253,7 @@ export const importValidRows = async (validatedData, supabase, onProgress) => {
                 query = supabase
                     .from('arsip')
                     .update({
-                        ...payload,
-                        updated_at: new Date().toISOString()
+                        ...payload
                     })
                     .eq('id', updateTargetId);
             } else {
