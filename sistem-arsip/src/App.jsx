@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js'; // Keeping import to avoid breaking if used elsewhere (wait, I extracted it).
 // Actually, I should remove it if unused.
 // But `App.jsx` imported it.
@@ -59,6 +60,7 @@ export default function App() {
     // const [currentView, setCurrentView] = useState('dashboard'); // Removed for Router
     const navigate = useNavigate();
     const location = useLocation();
+    const queryClient = useQueryClient();
     const [session, setSession] = useState(null);
     const [initialFilter, setInitialFilter] = useState('all');
 
@@ -127,6 +129,9 @@ export default function App() {
         const arsipChannel = supabase.channel('public:arsip')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'arsip' },
                 (payload) => {
+                    // Invalidate React Query cache to ensure lists are updated
+                    queryClient.invalidateQueries({ queryKey: ['arsip'] });
+
                     if (payload.eventType === 'INSERT') {
                         setArsipList(prev => [payload.new, ...prev]);
                         toast.success('Data arsip baru ditambahkan!');
@@ -478,7 +483,7 @@ export default function App() {
                     <ArsipForm
                         {...commonProps}
                         arsipToEdit={editingArsip}
-                        onFinish={() => navigate('/')}
+                        onFinish={() => navigate('/arsip')}
                     />
                 } />
                 <Route path="/label" element={
