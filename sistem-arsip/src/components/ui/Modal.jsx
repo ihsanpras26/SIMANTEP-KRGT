@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import { cn } from '../../lib/cn';
 import { Button } from './Button';
 
 const Modal = ({ isOpen, onClose, children, className, size = 'default' }) => {

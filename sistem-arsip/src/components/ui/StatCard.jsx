@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import { cn } from '../../lib/cn';
 import { Card } from './Card';
 
 const StatCard = ({ 

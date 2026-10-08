@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '../../utils/cn';
+import { cn } from '../../lib/cn';
 
 const Input = React.forwardRef(({ className, type, label, error, icon: Icon, ...props }, ref) => {
   const [isFocused, setIsFocused] = React.useState(false);

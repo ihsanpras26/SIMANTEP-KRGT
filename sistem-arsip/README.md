@@ -1,12 +1,54 @@
-# React + Vite
+# Aplikasi SIMANTEP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Panduan arsitektur tersedia di [docs/struktur-proyek.md](../docs/struktur-proyek.md).
 
-Currently, two official plugins are available:
+## Konfigurasi lokal
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Dari direktori `sistem-arsip/`, jalankan `npm ci`, salin `.env.example` ke `.env`, lalu isi:
 
-## Expanding the ESLint configuration
+| Variabel | Penggunaan |
+| --- | --- |
+| `VITE_SUPABASE_URL` | URL proyek Supabase |
+| `VITE_SUPABASE_ANON_KEY` | Kunci publik legacy anon, dilindungi kebijakan RLS |
+| `VITE_ADMIN_EMAIL` | Email yang diperiksa alur login saat ini |
+| `VITE_ADMIN_PASSWORD` | Pemeriksaan password pada alur login saat ini; terbaca di browser |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Semua `VITE_*` masuk ke bundle frontend. Jangan gunakan service-role/secret key.
+Lihat [temuan autentikasi](../docs/audit-struktur.md) sebelum memakai konfigurasi admin di produksi.
+Jika konfigurasi Supabase belum tersedia, aplikasi menampilkan pesan konfigurasi.
+
+## Perintah
+
+```sh
+npm run dev               # Server pengembangan
+npm run check:structure   # Impor relatif dan keterjangkauan kode dari entry point
+npm run lint              # Pemeriksaan JavaScript, JSX, dan React Hooks
+npm run build             # Bundle produksi ke dist/
+npm run preview           # Meninjau hasil build
+```
+
+`check:structure` memeriksa impor relatif statis dan dynamic import dengan literal.
+Jika menambah entry point independen atau mekanisme impor lain, sesuaikan pemeriksaannya.
+
+Utilitas inspeksi Supabase bersifat baca dan dijalankan terpisah dari aplikasi:
+
+```sh
+npm run inspect:schema
+npm run inspect:labels
+npm run inspect:icon
+```
+
+Dua perintah pertama membaca konfigurasi `.env` di direktori aplikasi.
+`inspect:icon` memakai konfigurasi dotenv atau environment proses. Jangan menjalankannya
+terhadap proyek yang tidak dimaksudkan. Utilitas ini memerlukan tabel dan izin baca yang sesuai;
+hasil pemeriksaan satu baris tidak menggantikan dokumentasi skema atau audit RLS.
+
+## Deployment Vercel
+
+- Root Directory: `sistem-arsip`
+- Install Command: `npm ci`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Konfigurasikan environment melalui dashboard deployment.
+
+`vercel.json` mengarahkan rute SPA ke `index.html` agar refresh URL seperti `/arsip` bekerja.

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:structure": "node scripts/check-structure.js",
+    "inspect:schema": "node scripts/inspect-schema.js",
+    "inspect:labels": "node scripts/inspect-labels.js",
+    "inspect:icon": "node scripts/check-icon-column.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.55.0",

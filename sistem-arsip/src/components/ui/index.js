@@ -1,6 +1,8 @@
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './Card';
-export { Button, buttonVariants } from './Button';
-export { Badge, badgeVariants } from './Badge';
+export { Button } from './Button';
+export { buttonVariants, sizeVariants } from './buttonVariants';
+export { Badge } from './Badge';
+export { badgeVariants } from './badgeVariants';
 export { Input } from './Input';
 export { Modal, ModalHeader, ModalTitle, ModalDescription, ModalContent, ModalFooter } from './Modal';
 export { StatCard } from './StatCard';
