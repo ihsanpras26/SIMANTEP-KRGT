@@ -100,7 +100,7 @@ export default function Dashboard({
       trend: formatTrend(trends?.total),
       trendStyle: getTrendStyle(trends?.total),
       TrendIcon: getTrendIcon(trends?.total),
-      onClick: () => navigate('semua', 'all')
+      onClick: () => navigate('/arsip')
     },
     {
       title: 'Arsip Aktif',
@@ -111,7 +111,7 @@ export default function Dashboard({
       trend: formatTrend(trends?.active),
       trendStyle: getTrendStyle(trends?.active),
       TrendIcon: getTrendIcon(trends?.active),
-      onClick: () => navigate('arsip', 'active')
+      onClick: () => navigate('/arsip?status=active')
     },
     {
       title: 'Arsip Inaktif',
@@ -122,7 +122,7 @@ export default function Dashboard({
       trend: formatTrend(trends?.inactive),
       trendStyle: getTrendStyle(trends?.inactive),
       TrendIcon: getTrendIcon(trends?.inactive),
-      onClick: () => navigate('semua', 'inactive')
+      onClick: () => navigate('/arsip?status=inactive')
     },
   ];
 
@@ -268,7 +268,7 @@ export default function Dashboard({
             )}
           </div>
           <button
-            onClick={() => navigate('arsip')}
+            onClick={() => navigate('/arsip')}
             className="w-full mt-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             Lihat Semua Arsip

@@ -11,9 +11,9 @@ const useAppStore = create(
     loadingItems: new Set(), // Track individual items being processed
 
     // Actions
-    setArsipList: (arsipList) => set({ arsipList }),
-    setKlasifikasiList: (klasifikasiList) => set({ klasifikasiList }),
-    setLabels: (labels) => set({ labels }), // New Labels Action
+    setArsipList: (value) => set(state => ({ arsipList: typeof value === 'function' ? value(state.arsipList) : value })),
+    setKlasifikasiList: (value) => set(state => ({ klasifikasiList: typeof value === 'function' ? value(state.klasifikasiList) : value })),
+    setLabels: (value) => set(state => ({ labels: typeof value === 'function' ? value(state.labels) : value })),
     setIsLoading: (isLoading) => set({ isLoading }),
 
     // Optimistic updates for Arsip

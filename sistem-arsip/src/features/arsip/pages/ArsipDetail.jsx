@@ -116,9 +116,8 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
 
     // Parse labels if they exist
     const labels = useMemo(() => {
-        if (!arsip.labels || !Array.isArray(arsip.labels)) return [];
-        return arsip.labels;
-    }, [arsip.labels]);
+        return (arsip.arsip_labels || []).map(item => item.labels).filter(Boolean);
+    }, [arsip.arsip_labels]);
 
     return (
         <div className="space-y-5 animate-fade-in max-w-screen-2xl mx-auto">

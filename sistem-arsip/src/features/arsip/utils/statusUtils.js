@@ -1,4 +1,4 @@
-export const getArsipStatus = (arsip, klasifikasiList) => {
+export const getArsipStatus = (arsip, klasifikasiList = [], now = new Date()) => {
   if (!arsip) return 'Inaktif';
 
   const klasifikasi = klasifikasiList.find(k => k.kode === arsip.kodeKlasifikasi);
@@ -9,7 +9,7 @@ export const getArsipStatus = (arsip, klasifikasiList) => {
   // If no retention date is set, default to Active (assuming it hasn't expired yet)
   if (!arsip.tanggalRetensi) return 'Aktif';
 
-  const today = new Date();
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
 
   const retensiDate = new Date(arsip.tanggalRetensi);

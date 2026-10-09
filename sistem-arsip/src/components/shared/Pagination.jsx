@@ -10,7 +10,8 @@ export default function Pagination({
     onItemsPerPageChange,
     totalItems,
     startIndex,
-    endIndex
+    endIndex,
+    disabled = false
 }) {
     const getPageNumbers = () => {
         const pages = [];
@@ -54,9 +55,10 @@ export default function Pagination({
                     <span className="whitespace-nowrap">Baris per halaman:</span>
                     <select
                         value={itemsPerPage}
+                        disabled={disabled}
+                        aria-label="Baris per halaman"
                         onChange={(e) => {
                             onItemsPerPageChange(Number(e.target.value));
-                            onPageChange(1); // Reset to page 1
                         }}
                         className="bg-white border border-neutral-200 text-neutral-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-1.5 cursor-pointer outline-none hover:bg-neutral-50 transition-colors"
                     >
@@ -72,7 +74,7 @@ export default function Pagination({
             <div className="flex items-center gap-1.5">
                 <button
                     onClick={() => onPageChange(1)}
-                    disabled={currentPage === 1}
+                    disabled={disabled || currentPage <= 1}
                     className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     title="Halaman Pertama"
                 >
@@ -80,7 +82,7 @@ export default function Pagination({
                 </button>
                 <button
                     onClick={() => onPageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
+                    disabled={disabled || currentPage <= 1}
                     className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     title="Sebelumnya"
                 >
@@ -95,6 +97,8 @@ export default function Pagination({
                             ) : (
                                 <button
                                     onClick={() => onPageChange(page)}
+                                    disabled={disabled}
+                                    aria-current={currentPage === page ? 'page' : undefined}
                                     className={cn(
                                         "min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors",
                                         currentPage === page
@@ -111,7 +115,7 @@ export default function Pagination({
 
                 <button
                     onClick={() => onPageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
+                    disabled={disabled || currentPage >= totalPages}
                     className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     title="Selanjutnya"
                 >
@@ -119,7 +123,7 @@ export default function Pagination({
                 </button>
                 <button
                     onClick={() => onPageChange(totalPages)}
-                    disabled={currentPage === totalPages}
+                    disabled={disabled || currentPage >= totalPages}
                     className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     title="Halaman Terakhir"
                 >

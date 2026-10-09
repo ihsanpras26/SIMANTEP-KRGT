@@ -41,6 +41,7 @@ import EmptyState from '../../../components/shared/EmptyState';
 import { Modal, ModalHeader, ModalTitle, ModalContent, Button } from '../../../components/ui';
 import useAppStore from '../../../stores/useAppStore';
 import { useArsip } from '../hooks/useArsip';
+import { readListState, updateListParams } from '../utils/listState';
 import { useKlasifikasi } from '../../klasifikasi/hooks/useKlasifikasi';
 import SkeletonArsipList from './SkeletonArsipList';
 
@@ -49,22 +50,30 @@ export default function ArsipList({
   supabase,
   setDeleteConfirmModal,
   setSelectedArsipDetail,
-  initialFilter = 'all',
   showNotification
 }) {
-  // State for Pagination & Filters
-  const [viewMode, setViewMode] = useState('table');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterKlasifikasi, setFilterKlasifikasi] = useState('all');
-  const [filterLabel, setFilterLabel] = useState('all');
-  const [sortBy, setSortBy] = useState('tanggalSurat');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    viewMode, page: currentPage, pageSize: itemsPerPage, searchTerm,
+    filterKlasifikasi, filterLabel, sortBy, sortOrder, filterDate, filterStatus,
+  } = readListState(searchParams);
+  const changeList = (patch, options) => setSearchParams(previous => updateListParams(previous, patch), options);
+  const setViewMode = value => changeList({ viewMode: value });
+  const setCurrentPage = value => changeList({ page: value });
+  const setItemsPerPage = value => changeList({ pageSize: value });
+  const setSearchTerm = value => changeList({ searchTerm: value }, { replace: true });
+  const setFilterKlasifikasi = value => changeList({ filterKlasifikasi: value });
+  const setFilterLabel = value => changeList({ filterLabel: value });
+  const setFilterStatus = value => changeList({ filterStatus: value });
+  const setFilterDate = value => changeList({ filterDate: value });
+  const setSortBy = value => changeList({ sortBy: value });
+  const resetFilters = () => changeList({ filterStatus: 'all', filterKlasifikasi: 'all', filterLabel: 'all', filterDate: '' });
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  // Restored States
-  const [filterDate, setFilterDate] = useState('');
-  const [filterStatus, setFilterStatus] = useState(initialFilter);
   const [showFilters, setShowFilters] = useState(false);
   const [filterOverflow, setFilterOverflow] = useState('hidden');
   const [showLabelManager, setShowLabelManager] = useState(false);
@@ -76,42 +85,45 @@ export default function ArsipList({
   const [bulkImportMode, setBulkImportMode] = useState('create'); // 'create' | 'update'
   const filterButtonRef = useRef(null);
 
-  // Read label filter from URL params
-  const [searchParams] = useSearchParams();
-  const labelFromUrl = searchParams.get('label');
-
-  // Initialize filterLabel from URL on mount
-  useEffect(() => {
-    if (labelFromUrl) {
-      setFilterLabel(labelFromUrl);
-    }
-  }, [labelFromUrl]);
-
-  // React Query Hooks (Server-side Pagination)
-  const { data: arsipQueryData, isLoading: arsipLoading, refetch } = useArsip({
+  // Physical columns use server pagination; derived values use a complete cached result.
+  const { data: arsipQueryData, isLoading: arsipLoading, isFetching, isPlaceholderData, isError, error, refetch } = useArsip({
     page: currentPage,
     pageSize: itemsPerPage,
-    searchTerm,
+    searchTerm: debouncedSearch,
     filterKlasifikasi,
     filterLabel,
+    filterStatus,
+    filterDate,
     sortBy,
     sortOrder
   });
-  const { data: klasifikasiData } = useKlasifikasi();
+  const klasifikasiQuery = useKlasifikasi();
+  const { data: klasifikasiData } = klasifikasiQuery;
+  const listLoading = arsipLoading || klasifikasiQuery.isPending;
+  const listError = error || klasifikasiQuery.error;
 
   const arsipList = arsipQueryData?.data || [];
   const totalItems = arsipQueryData?.count || 0;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const resultsPending = debouncedSearch !== searchTerm || isPlaceholderData;
+  const listScope = searchParams.toString();
 
   const klasifikasiList = klasifikasiData || [];
   const {
     labels
   } = useAppStore();
 
-  // Debounce Search
   useEffect(() => {
-    setCurrentPage(1); // Reset page on filter change
-  }, [searchTerm, filterKlasifikasi, filterLabel]);
+    setSelectedItems(new Set());
+    setIsSelectionMode(false);
+    setContextMenu(null);
+  }, [listScope]);
+
+  useEffect(() => {
+    if (arsipQueryData && !isFetching && !resultsPending && currentPage > totalPages) {
+      setSearchParams(previous => updateListParams(previous, { page: totalPages }), { replace: true });
+    }
+  }, [arsipQueryData, isFetching, resultsPending, currentPage, totalPages, setSearchParams]);
 
   // Using `arsipList` directly as it is now the "Page Data".
   const filteredData = arsipList; // The hook already filtered it!
@@ -154,13 +166,10 @@ export default function ArsipList({
 
 
 
-  // Pagination Logic - Handled by Query
-  // const startIndex = (currentPage - 1) * itemsPerPage; // Already handled by SQL
-  const startIndex = (currentPage - 1) * itemsPerPage; // Defined for display info only if needed, but Query handles limits.
-  // Wait, I need startIndex for the "Showing 1-10 of 100" text in Pagination component.
+  const startIndex = totalItems ? (currentPage - 1) * itemsPerPage : 0;
   const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
-  const currentData = arsipList; // The API returns 1 page only
+  const currentData = arsipList;
 
   // Selection Handlers
   const toggleSelection = (id) => {
@@ -215,10 +224,9 @@ export default function ArsipList({
 
   const toggleSort = (field) => {
     if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      changeList({ sortOrder: sortOrder === 'asc' ? 'desc' : 'asc' });
     } else {
-      setSortBy(field);
-      setSortOrder('desc');
+      changeList({ sortBy: field, sortOrder: 'asc' });
     }
   };
 
@@ -242,7 +250,7 @@ export default function ArsipList({
   };
 
   return (
-    <div className="space-y-5 relative">
+    <div className="space-y-5 relative" aria-busy={listLoading || isFetching || resultsPending}>
       {/* Enhanced Header with Primary CTA */}
       <div className="flex flex-col gap-5">
         {/* Top Row: Search + Primary CTA */}
@@ -257,6 +265,7 @@ export default function ArsipList({
                 type="text"
                 placeholder="Cari berdasarkan nomor, perihal, atau pengirim..."
                 value={searchTerm}
+                aria-label="Cari arsip berdasarkan nomor, perihal, atau pengirim"
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="block w-full pl-12 pr-12 py-4 bg-white border-2 border-neutral-200 rounded-xl text-base shadow-sm placeholder-neutral-400
                   focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-medium"
@@ -383,18 +392,30 @@ export default function ArsipList({
           <span className="text-xs font-medium text-neutral-500 mr-1">Filter Aktif:</span>
           {filterStatus !== 'all' && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
-              Status: {filterStatus === 'active' ? 'Aktif' : 'Tidak Aktif'}
-              <button onClick={() => setFilterStatus('all')} className="hover:bg-primary-100 rounded-full p-0.5">
+              Status: {filterStatus === 'active' ? 'Aktif' : 'Inaktif'}
+              <button aria-label="Hapus filter status" onClick={() => setFilterStatus('all')} className="hover:bg-primary-100 rounded-full p-0.5">
                 <X size={12} />
               </button>
             </span>
           )}
+          {filterKlasifikasi !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary-50 text-primary-700 border border-primary-200">
+              Klasifikasi: {filterKlasifikasi}<button aria-label="Hapus filter klasifikasi" onClick={() => setFilterKlasifikasi('all')}><X size={12} /></button>
+            </span>
+          )}
+          {filterLabel !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary-50 text-primary-700 border border-primary-200">
+              Label: {labels.find(label => String(label.id) === filterLabel)?.name || filterLabel}<button aria-label="Hapus filter label" onClick={() => setFilterLabel('all')}><X size={12} /></button>
+            </span>
+          )}
+          {filterDate && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary-50 text-primary-700 border border-primary-200">
+              Tanggal: {format(new Date(`${filterDate}T00:00:00`), 'dd MMM yyyy', { locale: id })}<button aria-label="Hapus filter tanggal" onClick={() => setFilterDate('')}><X size={12} /></button>
+            </span>
+          )}
           <button
             onClick={() => {
-              setFilterStatus('all');
-              setFilterKlasifikasi('all');
-              setFilterDate('');
-              setFilterLabel('all');
+              resetFilters();
             }}
             className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline ml-2"
           >
@@ -421,10 +442,7 @@ export default function ArsipList({
                 </h3>
                 <button
                   onClick={() => {
-                    setFilterStatus('all');
-                    setFilterKlasifikasi('all');
-                    setFilterDate('');
-                    setFilterLabel('all');
+                    resetFilters();
                   }}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline"
                 >
@@ -487,6 +505,10 @@ export default function ArsipList({
                   >
                     <option value="tanggalSurat">Tanggal Surat</option>
                     <option value="nomorSurat">Nomor Surat</option>
+                    <option value="perihal">Perihal</option>
+                    <option value="kodeKlasifikasi">Kode Klasifikasi</option>
+                    <option value="label">Label</option>
+                    <option value="status">Status</option>
                     <option value="created_at">Tanggal Input</option>
                   </select>
                 </div>
@@ -498,11 +520,17 @@ export default function ArsipList({
 
       {/* Main Content */}
       <div className="relative">
-        {arsipLoading ? (
+        {isError || klasifikasiQuery.isError ? (
+          <div role="alert" className="bg-white border border-red-200 rounded-xl p-6 space-y-3">
+            <p className="font-semibold text-neutral-900">Data arsip gagal dimuat</p>
+            <p className="text-sm text-neutral-600">{listError?.message || 'Periksa koneksi dan coba kembali.'}</p>
+            <Button onClick={() => { refetch(); klasifikasiQuery.refetch(); }}>Coba lagi</Button>
+          </div>
+        ) : listLoading || resultsPending ? (
           <SkeletonArsipList viewMode={viewMode} />
         ) : currentData.length === 0 ? (
           <EmptyState
-            type={searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all' ? 'noResults' : 'noData'}
+            type={searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all' || filterStatus !== 'all' || filterDate ? 'noResults' : 'noData'}
             searchTerm={searchTerm}
             activeFilters={
               (filterKlasifikasi !== 'all' ? 1 : 0) +
@@ -511,12 +539,8 @@ export default function ArsipList({
               (filterStatus !== 'all' ? 1 : 0)
             }
             onAction={() => {
-              if (searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all') {
-                setSearchTerm('');
-                setFilterKlasifikasi('all');
-                setFilterLabel('all');
-                setFilterDate('');
-                setFilterStatus('all');
+              if (searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all' || filterStatus !== 'all' || filterDate) {
+                changeList({ searchTerm: '', filterKlasifikasi: 'all', filterLabel: 'all', filterDate: '', filterStatus: 'all' });
               } else {
                 setEditingArsip({});
               }
@@ -538,46 +562,16 @@ export default function ArsipList({
                         />
                       </th>
                     )}
-                    <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                      Nomor Surat
-                    </th>
-                    <th className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Perihal</th>
-                    <th
-                      className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100 transition-colors w-48"
-                      onClick={() => toggleSort('tanggalSurat')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Tanggal Surat
-                        <SortIcon field="tanggalSurat" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100"
-                      onClick={() => toggleSort('kodeKlasifikasi')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Kode Klasifikasi
-                        <SortIcon field="kodeKlasifikasi" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100"
-                      onClick={() => toggleSort('label')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Label
-                        <SortIcon field="label" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider group cursor-pointer hover:bg-neutral-100"
-                      onClick={() => toggleSort('status')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Status
-                        <SortIcon field="status" />
-                      </div>
-                    </th>
+                    {[
+                      ['nomorSurat', 'Nomor Surat'], ['perihal', 'Perihal'], ['tanggalSurat', 'Tanggal Surat'],
+                      ['kodeKlasifikasi', 'Kode Klasifikasi'], ['label', 'Label'], ['status', 'Status'],
+                    ].map(([field, label]) => (
+                      <th key={field} scope="col" aria-sort={sortBy === field ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                        <button type="button" onClick={() => toggleSort(field)} className="flex items-center gap-1 group text-left" aria-label={`Urutkan berdasarkan ${label}`}>
+                          {label}<SortIcon field={field} />
+                        </button>
+                      </th>
+                    ))}
                     <th className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider text-center w-16">Aksi</th>
                   </tr>
                 </thead>
@@ -755,15 +749,15 @@ export default function ArsipList({
       </div>
 
 
-      {/* Pagination Footer - Keep as is (omitted for brevity, assume its there or reused) */}
       {/* Pagination Footer */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
+        disabled={isFetching || resultsPending}
         onPageChange={setCurrentPage}
         itemsPerPage={itemsPerPage}
         onItemsPerPageChange={setItemsPerPage}
-        totalItems={filteredData.length}
+        totalItems={totalItems}
         startIndex={startIndex}
         endIndex={endIndex}
       />

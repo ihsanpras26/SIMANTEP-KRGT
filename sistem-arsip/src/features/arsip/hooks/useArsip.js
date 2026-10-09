@@ -1,81 +1,44 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
+import { useKlasifikasi } from '../../klasifikasi/hooks/useKlasifikasi';
+import { normalizeListState } from '../utils/listState';
+import { fetchArsip, fetchArsipDetail, needsCompleteResult } from '../services/arsipService';
 
 export const ARSIP_KEYS = {
-    all: ['arsip'],
-    list: (params) => [...ARSIP_KEYS.all, 'list', params],
-    detail: (id) => [...ARSIP_KEYS.all, 'detail', id],
+  all: ['arsip'],
+  list: params => [...ARSIP_KEYS.all, 'list', params],
+  detail: id => [...ARSIP_KEYS.all, 'detail', id],
 };
 
-export function useArsip(params = {}) {
-    const {
-        page = 1,
-        pageSize = 10,
-        searchTerm = '',
-        filterKlasifikasi = 'all',
-        filterLabel = 'all',
-        sortBy = 'tanggalSurat',
-        sortOrder = 'desc'
-    } = params;
+export function useArsip(rawParams = {}) {
+  const { viewMode: _viewMode, ...params } = normalizeListState(rawParams);
+  const klasifikasi = useKlasifikasi();
+  const complete = needsCompleteResult(params);
+  const needsStatus = params.filterStatus !== 'all' || params.sortBy === 'status';
+  const queryParams = complete ? { ...params, page: 'all', pageSize: 10 } : params;
+  const now = new Date();
+  const classificationVersion = needsStatus ? (klasifikasi.data || []).map(k => [k.kode, k.retensiAktif, k.retensiInaktif]) : null;
 
-    return useQuery({
-        queryKey: ARSIP_KEYS.list({ page, pageSize, searchTerm, filterKlasifikasi, filterLabel, sortBy, sortOrder }),
-        queryFn: async () => {
-            if (!supabase) return { data: [], count: 0 };
+  const query = useQuery({
+    queryKey: ARSIP_KEYS.list({ ...queryParams, ...(needsStatus ? { classificationVersion, day: now.toDateString() } : {}) }),
+    enabled: Boolean(supabase) && (!needsStatus || klasifikasi.isSuccess),
+    queryFn: ({ signal }) => fetchArsip(supabase, queryParams, klasifikasi.data || [], signal, now),
+    select: result => complete && params.page !== 'all'
+      ? { ...result, data: result.data.slice((params.page - 1) * params.pageSize, params.page * params.pageSize) }
+      : result,
+    placeholderData: keepPreviousData,
+  });
+  if (needsStatus && klasifikasi.isError) {
+    return { ...query, isError: true, error: klasifikasi.error, refetch: klasifikasi.refetch };
+  }
+  return { ...query, isLoading: query.isLoading || (needsStatus && klasifikasi.isPending) };
+}
 
-            let query = supabase
-                .from('arsip')
-                .select('*, arsip_labels(label_id, labels(*))', { count: 'exact' });
-
-            // Filters
-            if (searchTerm) {
-                query = query.or(`nomorSurat.ilike.%${searchTerm}%,perihal.ilike.%${searchTerm}%`);
-            }
-            if (filterKlasifikasi !== 'all') {
-                query = query.eq('kodeKlasifikasi', filterKlasifikasi);
-            }
-            // Label filtering using inner join for many-to-many relationship
-            if (filterLabel !== 'all') {
-                // Use !inner join to filter by arsip_labels relationship
-                // This ensures only arsip with the specific label_id are returned
-                query = supabase
-                    .from('arsip')
-                    .select('*, arsip_labels!inner(label_id, labels(*))', { count: 'exact' })
-                    .eq('arsip_labels.label_id', filterLabel);
-
-                // Re-apply other filters if they were set
-                if (searchTerm) {
-                    query = query.or(`nomorSurat.ilike.%${searchTerm}%,perihal.ilike.%${searchTerm}%`);
-                }
-                if (filterKlasifikasi !== 'all') {
-                    query = query.eq('kodeKlasifikasi', filterKlasifikasi);
-                }
-            }
-
-            // Sorting
-            const validSortColumns = ['nomorSurat', 'tanggalSurat', 'created_at', 'kodeKlasifikasi', 'perihal'];
-            let sortColumn = sortBy;
-
-            // Map virtual columns to best proxies or defaults to prevent crashes
-            if (sortBy === 'status') sortColumn = 'tanggalSurat';
-            else if (sortBy === 'label') sortColumn = 'created_at';
-            else if (!validSortColumns.includes(sortBy)) sortColumn = 'tanggalSurat';
-
-            query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
-
-            // Pagination
-            if (page !== 'all') {
-                const from = (page - 1) * pageSize;
-                const to = from + pageSize - 1;
-                query = query.range(from, to);
-            }
-
-            const { data, count, error } = await query;
-
-            if (error) throw error;
-
-            return { data, count };
-        },
-        placeholderData: keepPreviousData, // Keep old data while fetching new page
-    });
+export function useArsipDetail(id) {
+  return useQuery({
+    queryKey: ARSIP_KEYS.detail(id),
+    enabled: Boolean(supabase && id),
+    queryFn: ({ signal }) => fetchArsipDetail(supabase, id, signal),
+    staleTime: 0,
+  });
 }

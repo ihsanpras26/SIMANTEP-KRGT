@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Command, FileText, FolderKanban, Plus, Settings, LogOut, X, ArrowRight, Archive } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { matchesArsipSearch } from '../../features/arsip/utils/listState';
 
 export default function CommandPalette({
   isOpen,
@@ -19,7 +20,7 @@ export default function CommandPalette({
   const defaultActions = useMemo(() => [
     { id: 'new-arsip', label: 'Tambah Arsip Baru', icon: Plus, action: () => navigate('/arsip/tambah') },
     { id: 'dashboard', label: 'Go to Dashboard', icon: Command, action: () => navigate('/') },
-    { id: 'all-arsip', label: 'Lihat Semua Arsip', icon: FileText, action: () => navigate('/semua-arsip') },
+    { id: 'all-arsip', label: 'Lihat Semua Arsip', icon: FileText, action: () => navigate('/arsip') },
     { id: 'klasifikasi', label: 'Kelola Klasifikasi', icon: FolderKanban, action: () => navigate('/klasifikasi') },
   ], [navigate]);
 
@@ -35,22 +36,22 @@ export default function CommandPalette({
     );
 
     // Filter archives
-    const matchedArchives = arsipList.filter(arsip =>
-      arsip.perihal?.toLowerCase().includes(lowerQuery) ||
-      arsip.nomorArsip?.toLowerCase().includes(lowerQuery)
+    const matchedArchives = arsipList.filter(arsip => matchesArsipSearch(arsip, query)
     ).slice(0, 5).map(arsip => ({
       id: `arsip-${arsip.id}`,
       label: arsip.perihal,
-      subLabel: arsip.nomorArsip,
+      subLabel: arsip.nomorSurat,
       icon: Archive,
       action: () => {
         if (setSelectedArsipDetail) setSelectedArsipDetail(arsip);
-        navigate('/arsip/detail');
+        else navigate(`/arsip/${encodeURIComponent(arsip.id)}`);
       }
     }));
 
     return [...matchedActions, ...matchedArchives];
   }, [query, actions, arsipList, defaultActions, navigate, setSelectedArsipDetail]);
+
+  useEffect(() => setSelectedIndex(0), [query]);
 
   useEffect(() => {
     if (isOpen) {
@@ -64,10 +65,10 @@ export default function CommandPalette({
     const handleKeyDown = (e) => {
       if (!isOpen) return;
 
-      if (e.key === 'ArrowDown') {
+      if (e.key === 'ArrowDown' && filteredItems.length) {
         e.preventDefault();
         setSelectedIndex(prev => (prev + 1) % filteredItems.length);
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.key === 'ArrowUp' && filteredItems.length) {
         e.preventDefault();
         setSelectedIndex(prev => (prev - 1 + filteredItems.length) % filteredItems.length);
       } else if (e.key === 'Enter') {

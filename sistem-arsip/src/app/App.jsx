@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import useAppStore from '../stores/useAppStore';
 import { getArsipStatus } from '../features/arsip/utils/statusUtils';
 import { supabase } from '../lib/supabaseClient';
-import { useArsip } from '../features/arsip/hooks/useArsip';
+import { useArsip, ARSIP_KEYS } from '../features/arsip/hooks/useArsip';
 import { useKlasifikasi } from '../features/klasifikasi/hooks/useKlasifikasi';
 import { useLabels } from '../features/labels/hooks/useLabels';
 
@@ -20,11 +20,12 @@ import AdminLoginForm from '../features/auth/components/AdminLoginForm';
 import ConfigurationMessage from '../features/auth/components/ConfigurationMessage';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import InfoModal from '../components/shared/InfoModal';
-import ArsipDetail from '../features/arsip/pages/ArsipDetail';
+import ArsipDetailPage from '../features/arsip/pages/ArsipDetailPage';
+import { getArsipReturnPath } from '../features/arsip/utils/listState';
 import DeleteConfirmModal from '../components/shared/DeleteConfirmModal';
 import KlasifikasiForm from '../features/klasifikasi/components/KlasifikasiForm';
 import LabelDashboard from '../features/labels/components/LabelDashboard';
-import { Modal, ModalHeader, ModalTitle, ModalContent } from '../components/ui';
+import { Modal, ModalHeader, ModalTitle, ModalContent, Button } from '../components/ui';
 
 // Styles
 import '../styles/animations.css';
@@ -54,7 +55,6 @@ export default function App() {
     const location = useLocation();
     const queryClient = useQueryClient();
     const [session, setSession] = useState(null);
-    const [initialFilter] = useState('all');
 
     // Zustand store
     const {
@@ -67,21 +67,18 @@ export default function App() {
         setIsLoading: setStoreLoading
     } = useAppStore();
 
-    // React Query Hooks
-    // React Query Hooks
-    // App needs ALL data for stats (page: 'all')
-    const { data: arsipData, isLoading: arsipLoading } = useArsip({ page: 'all', pageSize: 10000 });
-    const { data: klasifikasiData, isLoading: klasifikasiLoading } = useKlasifikasi();
-    const { data: labelsData, isLoading: labelsLoading } = useLabels();
+    // Dashboard and command search share a complete, cached archive collection.
+    const arsipQuery = useArsip({ page: 'all' });
+    const klasifikasiQuery = useKlasifikasi();
+    const labelsQuery = useLabels();
+    const { data: arsipData, isLoading: arsipLoading } = arsipQuery;
+    const { data: klasifikasiData, isLoading: klasifikasiLoading } = klasifikasiQuery;
+    const { data: labelsData, isLoading: labelsLoading } = labelsQuery;
+    const dashboardError = arsipQuery.error || klasifikasiQuery.error || labelsQuery.error;
 
     // Sync Query Data to Store (Bridge for Transition)
     useEffect(() => {
-        // useArsip now returns { data, count } for pagination
-        // We sync only the data array to the store for now to prevent crashes.
-        // NOTE: This means 'arsipList' in store only has the current page's data.
-        // Dashboard stats will be incorrect until we implement a separate 'useArsipStats' hook.
         if (arsipData?.data) setArsipList(arsipData.data);
-        else if (Array.isArray(arsipData)) setArsipList(arsipData); // Fallback if structure changes back
     }, [arsipData, setArsipList]);
 
     useEffect(() => {
@@ -101,7 +98,6 @@ export default function App() {
     const [editingKlasifikasi, setEditingKlasifikasi] = useState(null);
     const [showKlasifikasiModal, setShowKlasifikasiModal] = useState(false);
     const [showInfoModal, setShowInfoModal] = useState(false);
-    const [selectedArsipDetail, setSelectedArsipDetail] = useState(null);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, id: null, message: '' });
 
     // Admin Auth
@@ -139,6 +135,7 @@ export default function App() {
         const klasifikasiChannel = supabase.channel('public:klasifikasi')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'klasifikasi' },
                 (payload) => {
+                    queryClient.invalidateQueries({ queryKey: ['klasifikasi'] });
                     if (payload.eventType === 'INSERT') {
                         setKlasifikasiList(prev => [...prev, payload.new].sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true })));
                     } else if (payload.eventType === 'UPDATE') {
@@ -152,6 +149,8 @@ export default function App() {
         const labelsChannel = supabase.channel('public:labels')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'labels' },
                 (payload) => {
+                    queryClient.invalidateQueries({ queryKey: ['labels'] });
+                    queryClient.invalidateQueries({ queryKey: ARSIP_KEYS.all });
                     if (payload.eventType === 'INSERT') {
                         setLabels(prev => [...prev, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
                     } else if (payload.eventType === 'UPDATE') {
@@ -162,11 +161,17 @@ export default function App() {
                 }
             ).subscribe();
 
+        const archiveLabelsChannel = supabase.channel('public:arsip_labels')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'arsip_labels' },
+                () => queryClient.invalidateQueries({ queryKey: ARSIP_KEYS.all })
+            ).subscribe();
+
         return () => {
             authListener?.subscription?.unsubscribe?.();
             supabase.removeChannel(arsipChannel);
             supabase.removeChannel(klasifikasiChannel);
             supabase.removeChannel(labelsChannel);
+            supabase.removeChannel(archiveLabelsChannel);
         };
     }, [queryClient, setArsipList, setKlasifikasiList, setLabels]);
 
@@ -306,8 +311,10 @@ export default function App() {
     };
 
     const handleArsipSelect = (item) => {
-        setSelectedArsipDetail(item);
-        navigate('/arsip/detail');
+        if (!item?.id) return;
+        queryClient.setQueryData(ARSIP_KEYS.detail(String(item.id)), item);
+        const from = getArsipReturnPath(`${location.pathname}${location.search}`);
+        navigate(`/arsip/${encodeURIComponent(item.id)}?${new URLSearchParams({ from })}`);
     };
 
     // --- Render Helpers ---
@@ -318,7 +325,7 @@ export default function App() {
         if (pathname === '/arsip') return 'Daftar Arsip';
         if (pathname === '/label') return 'Label & Kategori';
         if (pathname === '/klasifikasi') return 'Kode Klasifikasi';
-        if (pathname === '/arsip/detail') return 'Detail Arsip';
+        if (pathname.startsWith('/arsip/')) return 'Detail Arsip';
         return 'Sistem Arsip';
     };
 
@@ -426,7 +433,8 @@ export default function App() {
         );
     }
 
-    if (storeLoading) {
+    // Lists and direct detail links handle their own loading/errors independently.
+    if (storeLoading && location.pathname === '/') {
         return (
             <div className="flex items-center justify-center min-h-screen bg-neutral-50">
                 <div className="flex flex-col items-center gap-4 animate-pulse-soft">
@@ -461,7 +469,13 @@ export default function App() {
         >
             <Routes>
                 <Route path="/" element={
-                    <Dashboard
+                    dashboardError ? (
+                        <div role="alert" className="bg-white border border-red-200 rounded-xl p-6 space-y-3">
+                            <p className="font-semibold">Data dashboard gagal dimuat</p>
+                            <p className="text-neutral-600">{dashboardError.message || 'Periksa koneksi dan coba kembali.'}</p>
+                            <Button onClick={() => { arsipQuery.refetch(); klasifikasiQuery.refetch(); labelsQuery.refetch(); }}>Coba lagi</Button>
+                        </div>
+                    ) : <Dashboard
                         {...commonProps}
                         stats={{
                             total: arsipList.length,
@@ -476,7 +490,7 @@ export default function App() {
                     <ArsipForm
                         {...commonProps}
                         arsipToEdit={editingArsip}
-                        onFinish={() => navigate('/arsip')}
+                        onFinish={() => navigate(getArsipReturnPath(location.state?.returnTo))}
                     />
                 } />
                 <Route path="/label" element={
@@ -489,14 +503,15 @@ export default function App() {
                     <KlasifikasiManager {...commonProps} openModal={() => setShowKlasifikasiModal(true)} />
                 } />
                 <Route path="/semua-arsip" element={
-                    <ArsipList {...commonProps} title="Semua Arsip" setEditingArsip={(a) => { setEditingArsip(a); navigate('/arsip/tambah'); }} listType="semua" initialFilter={initialFilter} />
+                    <ArsipList {...commonProps} title="Semua Arsip" setEditingArsip={(a) => { setEditingArsip(a); navigate('/arsip/tambah', { state: { returnTo: `${location.pathname}${location.search}` } }); }} />
                 } />
                 <Route path="/arsip" element={
-                    <ArsipList {...commonProps} title="Daftar Arsip" setEditingArsip={(a) => { setEditingArsip(a); navigate('/arsip/tambah'); }} listType="arsip" initialFilter={initialFilter} />
+                    <ArsipList {...commonProps} title="Daftar Arsip" setEditingArsip={(a) => { setEditingArsip(a); navigate('/arsip/tambah', { state: { returnTo: `${location.pathname}${location.search}` } }); }} />
                 } />
                 <Route path="/arsip/detail" element={
-                    <ArsipDetail arsip={selectedArsipDetail} onBack={() => navigate('/arsip')} klasifikasiList={klasifikasiList} />
+                    <Navigate to="/arsip" replace />
                 } />
+                <Route path="/arsip/:id" element={<ArsipDetailPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
 

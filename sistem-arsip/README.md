@@ -23,6 +23,7 @@ Jika konfigurasi Supabase belum tersedia, aplikasi menampilkan pesan konfigurasi
 npm run dev               # Server pengembangan
 npm run check:structure   # Impor relatif dan keterjangkauan kode dari entry point
 npm run lint              # Pemeriksaan JavaScript, JSX, dan React Hooks
+npm test                  # Tes regresi dengan respons Supabase contoh
 npm run build             # Bundle produksi ke dist/
 npm run preview           # Meninjau hasil build
 ```
@@ -52,3 +53,7 @@ hasil pemeriksaan satu baris tidak menggantikan dokumentasi skema atau audit RLS
 - Konfigurasikan environment melalui dashboard deployment.
 
 `vercel.json` mengarahkan rute SPA ke `index.html` agar refresh URL seperti `/arsip` bekerja.
+
+Daftar arsip menyimpan pencarian, filter, sorting, dan pagination di URL. Detail arsip
+menggunakan `/arsip/:id` sehingga dapat dibuka langsung dan di-refresh.
+Lihat [panduan tahap 1](../docs/ui-ux-tahap-1.md) untuk perilaku query dan pemeriksaan manual.

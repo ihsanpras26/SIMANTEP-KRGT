@@ -21,6 +21,7 @@ khusus untuk fitur tersebut. Tambahkan subdirektori hanya bila diperlukan.
 | `lib` | Klien Supabase tunggal dan helper class name |
 | `stores` | State Zustand yang digunakan bersama |
 | `scripts` | Pemeriksaan struktur dan inspeksi database manual |
+| `tests` | Regresi fungsi dan query di luar entry point aplikasi |
 
 ## Konvensi
 
@@ -33,7 +34,7 @@ khusus untuk fitur tersebut. Tambahkan subdirektori hanya bila diperlukan.
 - Gunakan impor relatif ke modul yang memiliki tanggung jawab terkait.
 - Semua berkas sumber harus terjangkau dari entry point; hapus prototipe yang tidak dipakai
   atau dokumentasikan dan daftarkan entry point independennya.
-- Jalankan `npm run check:structure`, `npm run lint`, dan `npm run build` sebelum push.
+- Jalankan `npm run check:structure`, `npm run lint`, `npm test`, dan `npm run build` sebelum push.
 
 ## Alur data saat ini
 

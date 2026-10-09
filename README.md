@@ -24,6 +24,7 @@ Lihat [panduan aplikasi](sistem-arsip/README.md) untuk konfigurasi, perintah, da
  docs/                 Panduan arsitektur dan hasil audit
  sistem-arsip/          Root aplikasi dan konfigurasi Vite/Vercel
    scripts/            Pemeriksaan struktur dan utilitas inspeksi
+   tests/              Regresi URL, query, pagination, dan status arsip
    src/
      app/              Komposisi aplikasi, routing, dan sesi
      assets/           Logo dan foto KRGT
@@ -41,5 +42,6 @@ Lihat [panduan aplikasi](sistem-arsip/README.md) untuk konfigurasi, perintah, da
 
 - [Aturan struktur dan alur data](docs/struktur-proyek.md)
 - [Hasil audit struktur](docs/audit-struktur.md)
+- [Perbaikan UI/UX tahap 1 dan panduan verifikasi](docs/ui-ux-tahap-1.md)
 
 Direktori aplikasi tetap `sistem-arsip/`; pada Vercel gunakan direktori ini sebagai **Root Directory**.
