@@ -256,10 +256,10 @@ export default function ArsipList({
         {/* Top Row: Search + Primary CTA */}
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
           {/* Enhanced Search - More Prominent */}
-          <div className="flex-1 w-full sm:w-auto">
+          <div className="min-w-0 flex-1 w-full sm:w-auto">
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="text-neutral-400 group-focus-within:text-primary-600 transition-colors" size={22} />
+                <Search className="text-neutral-400 group-focus-within:text-primary-600 transition-colors" size={19} />
               </div>
               <input
                 type="text"
@@ -267,11 +267,12 @@ export default function ArsipList({
                 value={searchTerm}
                 aria-label="Cari arsip berdasarkan nomor, perihal, atau pengirim"
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-12 pr-12 py-4 bg-white border-2 border-neutral-200 rounded-xl text-base shadow-sm placeholder-neutral-400
-                  focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-medium"
+                className="block h-12 w-full pl-12 pr-12 bg-white border border-neutral-200 rounded-xl text-sm shadow-sm placeholder-neutral-500
+                  focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-colors"
               />
               {searchTerm && (
                 <button
+                  aria-label="Hapus pencarian"
                   onClick={() => setSearchTerm('')}
                   className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-700 transition-colors"
                 >
@@ -287,28 +288,29 @@ export default function ArsipList({
             onClick={() => setEditingArsip(null)}
           >
             <Plus size={20} strokeWidth={2.5} />
-            <span className="hidden sm:inline">Tambah Arsip</span>
-            <span className="sm:hidden">Tambah</span>
+            <span>Tambah Arsip</span>
           </Button>
         </div>
 
         {/* Action Buttons - Reorganized by Function */}
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Group 1: View Mode */}
-          <div className="flex bg-neutral-100 p-1 rounded-lg">
+          <div role="group" aria-label="Tampilan arsip" className="flex h-11 items-center rounded-xl border border-neutral-200 bg-neutral-100 p-1">
             <button
+              aria-label="Tampilan tabel" aria-pressed={viewMode === 'table'}
               onClick={() => setViewMode('table')}
               className={cn(
-                "p-2 rounded-md transition-all",
+                "flex h-9 w-10 items-center justify-center rounded-lg transition-colors",
                 viewMode === 'table' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
               )}
             >
               <ListIcon size={18} />
             </button>
             <button
+              aria-label="Tampilan kartu" aria-pressed={viewMode === 'grid'}
               onClick={() => setViewMode('grid')}
               className={cn(
-                "p-2 rounded-md transition-all",
+                "flex h-9 w-10 items-center justify-center rounded-lg transition-colors",
                 viewMode === 'grid' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
               )}
             >
@@ -317,7 +319,7 @@ export default function ArsipList({
           </div>
 
           {/* Divider */}
-          <div className="h-8 w-px bg-neutral-200"></div>
+          <div className="hidden h-7 w-px bg-neutral-200 sm:block"></div>
 
           {/* Group 2: Data Actions */}
           <button
@@ -325,10 +327,10 @@ export default function ArsipList({
               setBulkImportMode('create');
               setShowBulkImport(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
+            className="flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium"
           >
             <Upload size={18} />
-            <span className="hidden sm:inline">Import</span>
+            <span className="inline">Import</span>
           </button>
 
           <button
@@ -336,22 +338,22 @@ export default function ArsipList({
               setBulkImportMode('update');
               setShowBulkImport(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
+            className="flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium"
           >
             <FileSpreadsheet size={18} />
-            <span className="hidden sm:inline">Edit Massal</span>
+            <span className="inline">Edit Massal</span>
           </button>
 
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium"
+            className="flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium"
           >
             <Download size={18} />
-            <span className="hidden sm:inline">Export</span>
+            <span className="inline">Export</span>
           </button>
 
           {/* Divider */}
-          <div className="h-8 w-px bg-neutral-200"></div>
+          <div className="hidden h-7 w-px bg-neutral-200 sm:block"></div>
 
           {/* Group 3: Organization & Filters */}
           <button
@@ -361,12 +363,12 @@ export default function ArsipList({
               if (!newMode) setSelectedItems(new Set());
             }}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium",
+              "flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium",
               isSelectionMode && "bg-primary-50 border-primary-500 text-primary-700"
             )}
           >
             <Tag size={18} />
-            <span className="hidden sm:inline">Label</span>
+            <span className="inline">Label</span>
           </button>
 
           <button
@@ -376,12 +378,12 @@ export default function ArsipList({
               setShowFilters(!showFilters);
             }}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-neutral-200 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-all shadow-sm font-medium",
+              "flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium",
               showFilters && "bg-primary-50 border-primary-500 text-primary-700"
             )}
           >
             <Filter size={18} />
-            <span className="hidden sm:inline">Filter</span>
+            <span className="inline">Filter</span>
           </button>
         </div>
       </div>
@@ -434,7 +436,7 @@ export default function ArsipList({
             onAnimationComplete={() => setFilterOverflow('visible')}
             className={cn("filter-container", filterOverflow === 'visible' ? 'overflow-visible' : 'overflow-hidden')}
           >
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-neutral-200">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-sm font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-2">
                   <Filter size={16} />
@@ -449,7 +451,7 @@ export default function ArsipList({
                   Reset Semua
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {/* ... Filters Inputs ... */}
                 <div>
                   <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Status Arsip</label>
@@ -548,10 +550,15 @@ export default function ArsipList({
           />
         ) : viewMode === 'table' ? (
           <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden animate-fade-in">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <p className="border-b border-neutral-200 px-4 py-3 text-xs text-neutral-500 sm:hidden">Geser tabel untuk melihat kolom lainnya, atau pilih tampilan kartu.</p>
+            <div role="region" aria-label="Tabel arsip, dapat digeser horizontal" tabIndex={0} className="overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[1040px] table-fixed text-left text-sm border-collapse">
+                <colgroup>
+                  {isSelectionMode && <col className="w-12" />}
+                  <col className="w-44" /><col /><col className="w-40" /><col className="w-28" /><col className="w-40" /><col className="w-32" /><col className="w-16" />
+                </colgroup>
                 <thead>
-                  <tr className="bg-gradient-to-r from-neutral-50 to-neutral-50/50 border-b-2 border-neutral-200">
+                  <tr className="bg-neutral-50 border-b border-neutral-200">
                     {isSelectionMode && (
                       <th className="w-12 p-4 text-center">
                         <input
@@ -566,13 +573,13 @@ export default function ArsipList({
                       ['nomorSurat', 'Nomor Surat'], ['perihal', 'Perihal'], ['tanggalSurat', 'Tanggal Surat'],
                       ['kodeKlasifikasi', 'Kode Klasifikasi'], ['label', 'Label'], ['status', 'Status'],
                     ].map(([field, label]) => (
-                      <th key={field} scope="col" aria-sort={sortBy === field ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                        <button type="button" onClick={() => toggleSort(field)} className="flex items-center gap-1 group text-left" aria-label={`Urutkan berdasarkan ${label}`}>
+                      <th key={field} scope="col" aria-sort={sortBy === field ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'} className="px-4 py-3 text-xs font-semibold text-neutral-600">
+                        <button type="button" onClick={() => toggleSort(field)} className="flex min-h-9 w-full items-center gap-1 group text-left" aria-label={`Urutkan berdasarkan ${label}`}>
                           {label}<SortIcon field={field} />
                         </button>
                       </th>
                     ))}
-                    <th className="px-6 py-4 text-xs font-bold text-neutral-600 uppercase tracking-wider text-center w-16">Aksi</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-neutral-600 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -588,7 +595,7 @@ export default function ArsipList({
                           "group transition-all cursor-pointer border-b border-neutral-100 last:border-b-0",
                           isSelected
                             ? "bg-primary-50/50"
-                            : "hover:bg-neutral-50 hover:shadow-sm"
+                            : "hover:bg-neutral-50"
                         )}
                         onClick={() => setSelectedArsipDetail(item)}
                       >
@@ -602,23 +609,23 @@ export default function ArsipList({
                             />
                           </td>
                         )}
-                        <td className="p-4 font-mono text-sm text-neutral-600">{item.nomorSurat}</td>
-                        <td className="px-6 py-5">
-                          <span className="font-semibold text-neutral-900 line-clamp-2">
+                        <td className="px-4 py-4 break-all font-mono text-xs text-neutral-600">{item.nomorSurat}</td>
+                        <td className="px-4 py-4">
+                          <span className="font-medium text-neutral-900 line-clamp-2">
                             {item.perihal}
                           </span>
                         </td>
-                        <td className="px-6 py-5 text-sm text-neutral-600">
+                        <td className="px-4 py-4 text-sm text-neutral-600">
                           {format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-4">
                           <Tooltip content={getKlasifikasiDeskripsi(item.kodeKlasifikasi)}>
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 cursor-help">
                               {item.kodeKlasifikasi}
                             </span>
                           </Tooltip>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-1 items-center max-w-xs">
                             {item.arsip_labels && item.arsip_labels.length > 0 ? (
                               item.arsip_labels.map((al, idx) => (
@@ -629,10 +636,10 @@ export default function ArsipList({
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-4">
                           <StatusBadge status={isInactive ? 'inactive' : 'active'} />
                         </td>
-                        <td className="px-6 py-5 text-center">
+                        <td className="px-4 py-4 text-center">
                           <RowActionsMenu
                             item={item}
                             onView={setSelectedArsipDetail}
@@ -651,7 +658,7 @@ export default function ArsipList({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 animate-fade-in">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
             {currentData.map((item) => {
               const status = getArsipStatus(item, klasifikasiList);
               const isInactive = status === 'Inaktif';
@@ -769,7 +776,7 @@ export default function ArsipList({
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-neutral-900 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-6"
+            className="fixed bottom-4 left-4 right-4 mx-auto max-w-xl bg-neutral-900 text-white px-4 py-3 rounded-2xl shadow-soft z-40 flex flex-wrap items-center justify-between gap-3 lg:left-[calc(var(--sidebar-width)+2rem)] lg:right-8"
           >
             <div className="flex items-center gap-3 border-r border-neutral-700 pr-6">
               <div className="px-2 py-0.5 bg-neutral-800 rounded text-xs font-mono font-bold">

@@ -176,13 +176,15 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
             {/* Modern Header */}
             <div className="mb-8">
                 <div className="flex items-start justify-between mb-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                         <h2 className="text-2xl font-bold text-neutral-900">Kelola Label</h2>
                         <p className="text-sm text-neutral-500 mt-1">Buat dan atur label untuk mengorganisir arsip Anda</p>
                     </div>
                     <button
+                        type="button"
+                        aria-label="Tutup pengelola label"
                         onClick={onClose}
-                        className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-all"
+                        className="app-icon-button ml-2"
                     >
                         <X size={20} />
                     </button>
@@ -199,7 +201,7 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
                         className="mb-6"
                     >
                         <form
-                            className="bg-gradient-to-br from-neutral-50 to-white p-6 rounded-2xl border border-neutral-200 shadow-sm"
+                            className="bg-neutral-50 p-4 sm:p-6 rounded-2xl border border-neutral-200 shadow-sm"
                             onSubmit={handleSubmitLabel}
                         >
                             <h3 className="text-sm font-semibold text-neutral-700 mb-4">
@@ -258,7 +260,7 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
                                         <Tag size={14} />
                                         Pilih Icon
                                     </label>
-                                    <div className="grid grid-cols-8 gap-2">
+                                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
                                         {ICONS.map((icon) => {
                                             const IconComponent = icon.component;
                                             return (
@@ -267,7 +269,7 @@ export default function LabelManager({ supabase, onClose, showNotification }) {
                                                     type="button"
                                                     onClick={() => setSelectedIcon(icon.name)}
                                                     className={cn(
-                                                        "p-3 rounded-xl border-2 transition-all flex items-center justify-center",
+                                                        "min-h-11 min-w-0 p-2 rounded-xl border-2 transition-all flex items-center justify-center",
                                                         selectedIcon === icon.name
                                                             ? "bg-primary-50 border-primary-400 text-primary-700 shadow-sm"
                                                             : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300"

@@ -348,85 +348,45 @@ export default function App() {
 
     if (!session) {
         return (
-            <div style={{ width: 'calc(100vw / 0.8)', height: 'calc(100vh / 0.8)' }} className="flex bg-white overflow-hidden fixed top-0 left-0">
-                {/* Left Side - Slideshow */}
-                <div className="hidden lg:block w-3/5 relative overflow-hidden bg-primary-950">
+            <div className="grid min-h-dvh bg-white lg:grid-cols-2">
+                <section aria-label="Kebun Raya Gunung Tidar" className="relative hidden min-h-dvh overflow-hidden bg-primary-950 lg:block">
                     <AnimatePresence initial={false}>
                         <motion.img
                             key={currentSlide}
                             src={backgroundImages[currentSlide]}
-                            alt="UPT Kebun Raya Gunung Tidar"
+                            alt="Taman Kebun Raya Gunung Tidar"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{
-                                duration: 1.5,
-                                ease: [0.4, 0, 0.2, 1]
-                            }}
-                            className="absolute inset-0 w-full h-full object-cover"
+                            transition={{ duration: 1.5 }}
+                            className="absolute inset-0 h-full w-full object-cover"
                         />
                     </AnimatePresence>
-
-                    {/* Overlay Gradient - Clean Bottom Only */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-primary-950/90 via-primary-950/30 to-transparent" />
-
-                    {/* Text Content */}
-                    <div className="absolute inset-0 flex flex-col justify-end p-12">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5, duration: 0.8 }}
-                            className="text-white max-w-2xl"
-                        >
-                            <h1 className="text-4xl font-display font-bold mb-4">Sistem Informasi Manajemen Arsip Terpadu</h1>
-                            <p className="text-lg text-neutral-200 opacity-90">UPT Kebun Raya Gunung Tidar</p>
-                        </motion.div>
-                    </div>
-                </div>
-
-                {/* Right Side - Login Form */}
-                <div className="w-full lg:w-2/5 flex flex-col items-center justify-center p-8 lg:p-12 bg-white relative">
-                    {/* Mobile Background (Absolute) - Visible only on small screens */}
-                    <div className="absolute inset-0 lg:hidden z-0">
-                        <img src={img1} alt="Background" className="w-full h-full object-cover opacity-10" />
-                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" />
-                    </div>
-
-                    <div className="w-full max-w-md relative z-10">
-                        <div className="text-center mb-10">
-                            <motion.div
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ duration: 0.5 }}
-                                className="inline-block p-4 rounded-3xl bg-primary-50 mb-6 shadow-glow-soft"
-                            >
-                                <img src={logo} alt="SIMANTEP Logo" className="w-16 h-16" />
-                            </motion.div>
-                            <motion.h2
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.2, duration: 0.5 }}
-                                className="text-3xl font-display font-bold text-neutral-900 mb-2"
-                            >
-                                Selamat Datang
-                            </motion.h2>
-                            <motion.p
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.3, duration: 0.5 }}
-                                className="text-neutral-500"
-                            >
-                                Silakan masuk untuk mengakses SIMANTEP
-                            </motion.p>
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary-950/95 via-primary-950/35 to-primary-950/10" />
+                    <div className="relative flex min-h-dvh flex-col justify-between p-10 xl:p-14">
+                        <div className="flex items-center gap-3 text-white">
+                            <img src={logo} alt="" className="h-10 w-10" />
+                            <span className="text-lg font-semibold tracking-wide">SIMANTEP</span>
                         </div>
-
+                        <div className="max-w-lg pb-4 text-white">
+                            <p className="mb-4 text-sm font-medium text-primary-100">UPT Kebun Raya Gunung Tidar</p>
+                            <h1 className="text-3xl font-semibold leading-tight xl:text-4xl">Arsip tertata.<br />Informasi mudah ditemukan.</h1>
+                            <p className="mt-5 max-w-md text-sm leading-relaxed text-white/85">Kelola surat, dokumen, dan masa retensi dalam satu ruang kerja yang terorganisasi.</p>
+                        </div>
+                    </div>
+                </section>
+                <div className="flex min-h-dvh items-center justify-center px-6 py-10 sm:px-10">
+                    <div className="w-full max-w-sm">
+                        <div className="mb-8">
+                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 lg:hidden">
+                                <img src={logo} alt="Logo SIMANTEP" className="h-9 w-9" />
+                            </div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary-700">SIMANTEP KRGT</p>
+                            <h2 className="text-3xl font-semibold text-neutral-900">Selamat datang</h2>
+                            <p className="mt-3 text-sm leading-relaxed text-neutral-600">Masuk untuk mengelola arsip Kebun Raya Gunung Tidar.</p>
+                        </div>
                         <AdminLoginForm onSubmit={handleAdminLogin} />
-
-                        <div className="mt-8 text-center">
-                            <p className="text-xs text-neutral-400">
-                                &copy; {new Date().getFullYear()} UPT Kebun Raya Gunung Tidar.<br />All rights reserved.
-                            </p>
-                        </div>
+                        <p className="mt-10 text-xs leading-relaxed text-neutral-500">&copy; {new Date().getFullYear()} UPT Kebun Raya Gunung Tidar</p>
                     </div>
                 </div>
             </div>

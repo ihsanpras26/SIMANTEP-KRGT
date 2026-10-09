@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import CommandPalette from './CommandPalette';
 import { Toaster } from 'react-hot-toast';
-import { cn } from '../../lib/cn';
 
 const SIDEBAR_COLLAPSED_KEY = 'simantep_sidebar_collapsed';
 
@@ -20,11 +20,30 @@ export default function Layout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      return saved ? JSON.parse(saved) : false;
+      return saved ? JSON.parse(saved) === true : false;
     } catch { return false; }
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  const location = useLocation();
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = event => { setIsDesktop(event.matches); setMobileMenuOpen(false); };
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => setMobileMenuOpen(false), [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen || isDesktop) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [mobileMenuOpen, isDesktop]);
 
   // Persist sidebar state to localStorage
   useEffect(() => {
@@ -44,38 +63,36 @@ export default function Layout({
   }, []);
 
   return (
-    <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 selection:bg-primary-100 selection:text-primary-900">
+    <div className="app-shell min-h-dvh bg-neutral-50 font-sans text-neutral-900" style={{ '--sidebar-width': sidebarCollapsed ? '5rem' : '15rem' }}>
       {/* Sidebar */}
       <Sidebar
-        collapsed={sidebarCollapsed}
+        collapsed={isDesktop && sidebarCollapsed}
+        isDesktop={isDesktop}
         mobileOpen={mobileMenuOpen}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onMobileClose={() => setMobileMenuOpen(false)}
-        onShowInfo={() => { }} // Handle info modal trigger
+        onMobileClose={closeMobileMenu}
         onNavigate={onNavigate}
       />
 
       {/* Main Content Area */}
       <div
-        className={cn(
-          "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-          "ml-0", // Mobile: no margin
-          sidebarCollapsed ? "md:ml-[72px]" : "md:ml-72" // Desktop: responsive margin
-        )}
+        inert={mobileMenuOpen && !isDesktop ? '' : undefined}
+        className="app-frame flex min-h-dvh min-w-0 flex-col transition-[margin-left] duration-200 lg:ml-[var(--sidebar-width)]"
       >
+        <a href="#main-content" className="skip-link">Lewati ke konten</a>
         {/* Header */}
         <Header
           title={title}
           onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          isSidebarCollapsed={sidebarCollapsed}
+          mobileMenuOpen={mobileMenuOpen}
           user={user}
           onLogout={onLogout}
           onOpenCommandPalette={() => setShowCommandPalette(true)}
         />
 
         {/* Page Content */}
-        <main className="flex-1 pt-24 px-4 md:px-8 pb-8 overflow-x-hidden">
-          <div className="max-w-screen-2xl mx-auto animate-fade-in">
+        <main id="main-content" tabIndex={-1} className="app-main min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto w-full min-w-0 max-w-[1440px] animate-fade-in">
             {children}
           </div>
         </main>

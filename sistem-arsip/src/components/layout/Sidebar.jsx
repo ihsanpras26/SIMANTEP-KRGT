@@ -1,146 +1,80 @@
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Archive,
-  FilePlus,
-  FolderKanban,
-  ChevronLeft,
-  ChevronRight,
-  Leaf,
-  Tag
-} from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Archive, FilePlus, FolderKanban, ChevronLeft, ChevronRight, Leaf, Tag, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import logo from '../../assets/favicon.svg';
 
-export function Sidebar({
-  collapsed,
-  mobileOpen,
-  onToggle,
-  onMobileClose,
-  onNavigate
-}) {
+const navItems = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+  { label: 'Daftar Arsip', icon: Archive, path: '/arsip' },
+  { label: 'Tambah Arsip', icon: FilePlus, path: '/arsip/tambah' },
+  { label: 'Label & Kategori', icon: Tag, path: '/label' },
+  { label: 'Klasifikasi', icon: FolderKanban, path: '/klasifikasi' },
+];
+
+export function Sidebar({ collapsed, isDesktop, mobileOpen, onToggle, onMobileClose, onNavigate }) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const sidebarRef = useRef(null);
 
-  const mainNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-    { id: 'arsip', label: 'Daftar Arsip', icon: Archive, path: '/arsip' },
-    { id: 'tambah', label: 'Tambah Arsip', icon: FilePlus, path: '/arsip/tambah' },
-    { id: 'label', label: 'Label & Kategori', icon: Tag, path: '/label' },
-    { id: 'klasifikasi', label: 'Klasifikasi', icon: FolderKanban, path: '/klasifikasi' },
-  ];
-
-  const handleNavigate = (path) => {
-    if (onNavigate) onNavigate(path);
-    navigate(path);
-    onMobileClose();
-  };
+  useEffect(() => {
+    if (!mobileOpen || isDesktop) return;
+    const previousFocus = document.getElementById('mobile-menu-toggle') || document.activeElement;
+    const sidebar = sidebarRef.current;
+    const focusFrame = requestAnimationFrame(() => sidebar.querySelector('button')?.focus());
+    const handleKey = event => {
+      if (event.key === 'Escape') { event.preventDefault(); onMobileClose(); }
+      if (event.key === 'Tab') {
+        const controls = [...sidebar.querySelectorAll('a[href], button:not([disabled])')].filter(node => node.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleKey);
+      requestAnimationFrame(() => previousFocus?.focus());
+    };
+  }, [mobileOpen, isDesktop, onMobileClose]);
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      <div
-        className={cn(
-          "fixed inset-0 z-40 bg-neutral-900/50 backdrop-blur-sm transition-opacity duration-300 md:hidden",
-          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onMobileClose}
-      />
-
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 bg-white border-r border-neutral-200 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col shadow-soft",
-          // Desktop width
-          collapsed ? "md:w-[72px]" : "md:w-72",
-          // Mobile width and transform
-          "w-72",
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        )}
-      >
-
-
-        {/* Logo Section */}
-        <div className="h-20 flex items-center px-5 border-b border-neutral-100">
-          <div className={cn("flex items-center gap-3 overflow-hidden transition-all duration-300", collapsed && "justify-center w-full")}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-transparent">
-              <img src={logo} alt="Logo" className="w-full h-full object-contain" />
-            </div>
-            <div className={cn("flex flex-col transition-opacity duration-200", collapsed ? "opacity-0 w-0 hidden" : "opacity-100")}>
-              <span className="font-display font-bold text-neutral-900 text-xl leading-none tracking-tight">SIMANTEP</span>
-              <span className="text-[10px] font-bold text-primary-600 tracking-widest uppercase mt-1">UPT Kebun Raya Gunung Tidar</span>
-            </div>
-          </div>
+      {mobileOpen && !isDesktop && <div className="fixed inset-0 z-40 bg-neutral-950/40 backdrop-blur-[2px] lg:hidden" onClick={onMobileClose} aria-hidden="true" />}
+      <aside ref={sidebarRef} id="app-sidebar" role={mobileOpen && !isDesktop ? 'dialog' : undefined} aria-modal={mobileOpen && !isDesktop ? true : undefined} aria-hidden={!isDesktop && !mobileOpen ? true : undefined} aria-label="Navigasi utama" inert={!isDesktop && !mobileOpen ? '' : undefined} className={cn(
+        'fixed inset-y-0 left-0 z-50 flex w-[calc(100vw-2rem)] max-w-72 flex-col border-r border-neutral-200 bg-white transition-[width,translate] duration-200 lg:max-w-none lg:translate-x-0 lg:pointer-events-auto',
+        collapsed ? 'lg:w-20' : 'lg:w-60',
+        mobileOpen ? 'translate-x-0 shadow-soft' : '-translate-x-full pointer-events-none',
+      )}>
+        <div className={cn('flex h-[72px] shrink-0 items-center border-b border-neutral-200 px-5', collapsed && 'justify-center px-3')}>
+          <Link to="/" onClick={() => { onNavigate?.('/'); onMobileClose(); }} aria-label="SIMANTEP, Dashboard" className="flex min-w-0 items-center gap-3 rounded-lg">
+            <img src={logo} alt="" className="h-9 w-9 shrink-0 object-contain" />
+            {!collapsed && <span className="min-w-0"><span className="block text-lg font-bold tracking-tight text-neutral-900">SIMANTEP</span><span className="block text-[11px] font-medium text-neutral-500">Kebun Raya Gunung Tidar</span></span>}
+          </Link>
+          {mobileOpen && !isDesktop && <button type="button" onClick={onMobileClose} aria-label="Tutup menu navigasi" className="app-icon-button ml-auto lg:hidden"><X size={20} /></button>}
         </div>
-
-        {/* Main Navigation */}
-        <div className="flex-1 py-6 px-3 space-y-8 overflow-y-auto scrollbar-hide">
-          {/* Main Group */}
-          <div>
-            {!collapsed && (
-              <h3 className="px-4 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Menu Utama</h3>
-            )}
-            <nav className="space-y-1">
-              {mainNavItems.map((item) => {
-                let isActive = false;
-
-                if (item.path === '/') {
-                  isActive = location.pathname === '/';
-                } else if (item.path === '/arsip') {
-                  // Special active logic for 'Daftar Arsip':
-                  // Active if path starts with /arsip BUT is NOT /arsip/tambah
-                  isActive = location.pathname.startsWith('/arsip') && location.pathname !== '/arsip/tambah';
-                } else {
-                  // Default behavior for other items (including /arsip/tambah)
-                  isActive = location.pathname.startsWith(item.path);
-                }
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigate(item.path)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
-                      isActive
-                        ? "bg-primary-50 text-primary-700 font-medium shadow-sm"
-                        : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900",
-                      collapsed && "justify-center px-0 py-3"
-                    )}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-500 rounded-r-full" />
-                    )}
-
-                    <item.icon
-                      size={22}
-                      className={cn(
-                        "flex-shrink-0 transition-colors duration-200",
-                        isActive ? "text-primary-600" : "text-neutral-400 group-hover:text-neutral-600"
-                      )}
-                    />
-
-                    {!collapsed && (
-                      <span className="truncate">{item.label}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+        <div className="flex-1 overflow-y-auto px-3 py-6">
+          {!collapsed && <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-500">Menu utama</p>}
+          <nav aria-label="Menu utama" className="space-y-1.5">
+            {navItems.map(item => {
+              const active = item.path === '/' ? location.pathname === '/'
+                : item.path === '/arsip' ? (location.pathname.startsWith('/arsip') && location.pathname !== '/arsip/tambah') || location.pathname === '/semua-arsip'
+                : location.pathname.startsWith(item.path);
+              return <Link key={item.path} to={item.path} onClick={() => { onNavigate?.(item.path); onMobileClose(); }} aria-label={item.label} aria-current={active ? 'page' : undefined} title={collapsed ? item.label : undefined} className={cn(
+                'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors',
+                active ? 'bg-primary-50 text-primary-800' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900',
+                collapsed && 'justify-center px-0',
+              )}>
+                <item.icon size={20} aria-hidden="true" className={cn('shrink-0', active ? 'text-primary-700' : 'text-neutral-500')} />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>;
+            })}
+          </nav>
         </div>
-
-        {/* Footer / Toggle */}
-        <div className="p-4 border-t border-neutral-100 bg-neutral-50/50">
-          <button
-            onClick={onToggle}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-neutral-500 hover:bg-white hover:text-neutral-900 hover:shadow-sm transition-all duration-200 border border-transparent hover:border-neutral-200",
-              collapsed && "justify-center"
-            )}
-          >
-            {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {!collapsed && <span className="text-sm font-medium">Sembunyikan Menu</span>}
+        <div className="space-y-3 border-t border-neutral-200 p-3">
+          {!collapsed && <div className="flex items-center gap-3 rounded-xl bg-neutral-50 p-3"><Leaf size={20} className="shrink-0 text-primary-700" /><div><p className="text-xs font-semibold text-neutral-700">UPT Kebun Raya</p><p className="text-xs text-neutral-500">Gunung Tidar · Magelang</p></div></div>}
+          <button type="button" onClick={onToggle} aria-label={collapsed ? 'Perluas menu navigasi' : 'Ringkas menu navigasi'} aria-expanded={!collapsed} className={cn('hidden min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-neutral-600 hover:bg-neutral-50 lg:flex', collapsed && 'justify-center px-0')}>
+            {collapsed ? <ChevronRight size={19} /> : <ChevronLeft size={19} />}{!collapsed && <span>Ringkas menu</span>}
           </button>
         </div>
       </aside>

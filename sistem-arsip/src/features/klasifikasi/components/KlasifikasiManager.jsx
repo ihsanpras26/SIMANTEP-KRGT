@@ -84,7 +84,7 @@ const KlasifikasiManager = ({ setEditingKlasifikasi, setDeleteConfirmModal, open
                         setEditingKlasifikasi(null);
                         openModal && openModal();
                     }}
-                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all"
+                    className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all"
                 >
                     <Plus size={20} />
                     <span>Tambah Kode</span>
@@ -110,25 +110,25 @@ const KlasifikasiManager = ({ setEditingKlasifikasi, setDeleteConfirmModal, open
                                     )}
                                     onClick={() => toggleCategory(mainCode)}
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex min-w-0 flex-1 items-center gap-3">
                                         <div className={cn(
-                                            "w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform duration-300 group-hover:scale-110",
+                                            "w-12 h-12 shrink-0 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform duration-300 group-hover:scale-110",
                                             mainCode.length === 3 ? "bg-neutral-800" : "bg-primary-500"
                                         )}>
                                             <FolderKanban size={24} />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-display font-bold text-lg text-neutral-900">{mainCode}</span>
 
                                             </div>
-                                            <div className="text-neutral-600 text-sm mt-0.5">
+                                            <div className="text-neutral-600 text-sm mt-0.5 [overflow-wrap:anywhere]">
                                                 {mainItem ? mainItem.deskripsi : (subItems.length > 0 ? 'Kategori Induk' : 'Tidak ada deskripsi')}
                                             </div>
 
                                             {/* Metadata Badges */}
                                             {mainItem && mainCode.length > 3 && (
-                                                <div className="flex items-center gap-2 mt-2">
+                                                <div className="flex flex-wrap items-center gap-2 mt-2">
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-medium">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                                         Aktif: {mainItem.retensiAktif} thn
@@ -142,9 +142,9 @@ const KlasifikasiManager = ({ setEditingKlasifikasi, setDeleteConfirmModal, open
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex shrink-0 items-center gap-3">
                                         {mainItem && mainCode.length > 3 && (
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex shrink-0 items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleEdit(mainItem); }}
                                                     className="p-2 text-neutral-400 hover:text-primary-600 hover:bg-white rounded-lg transition-colors"
@@ -192,22 +192,22 @@ const KlasifikasiManager = ({ setEditingKlasifikasi, setDeleteConfirmModal, open
                                                             onClick={() => handleEdit(item)}
                                                             className={cn(
                                                                 "group flex items-center justify-between p-3 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-neutral-100 transition-all cursor-pointer",
-                                                                !isSubCategory && "ml-8"
+                                                                !isSubCategory && "ml-3 sm:ml-8"
                                                             )}
                                                         >
-                                                            <div className="flex items-center gap-3">
+                                                            <div className="flex min-w-0 flex-1 items-center gap-3">
                                                                 <div className={cn(
-                                                                    "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold",
+                                                                    "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-sm font-bold",
                                                                     isSubCategory ? "bg-blue-50 text-blue-600" : "bg-indigo-50 text-indigo-600"
                                                                 )}>
                                                                     {isSubCategory ? <FolderOpen size={16} /> : <FileText size={16} />}
                                                                 </div>
-                                                                <div>
-                                                                    <div className="flex items-center gap-2">
+                                                                <div className="min-w-0">
+                                                                    <div className="flex flex-wrap items-center gap-2">
                                                                         <span className="font-mono font-bold text-neutral-900 text-sm">{item.kode}</span>
                                                                         <span className="text-neutral-600 text-sm line-clamp-1">{item.deskripsi}</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
                                                                         <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
                                                                             Aktif: {item.retensiAktif} thn
                                                                         </span>
@@ -218,7 +218,7 @@ const KlasifikasiManager = ({ setEditingKlasifikasi, setDeleteConfirmModal, open
                                                                 </div>
                                                             </div>
 
-                                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="flex shrink-0 items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                                                                 <button
                                                                     onClick={() => handleEdit(item)}
                                                                     className="p-1.5 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"

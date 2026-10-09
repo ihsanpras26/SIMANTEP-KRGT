@@ -33,7 +33,6 @@ const Button = React.forwardRef(({
       disabled={disabled || loading}
       whileHover={!disabled && !loading ? {
         y: -1,
-        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
         transition: { duration: 0.2, ease: 'easeOut' }
       } : {}}
       whileTap={!disabled && !loading ? {

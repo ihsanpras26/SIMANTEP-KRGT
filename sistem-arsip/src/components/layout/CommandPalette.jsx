@@ -90,7 +90,7 @@ export default function CommandPalette({
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] px-4"
+          className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-4 sm:pt-[12vh]"
         >
           {/* Backdrop with blur */}
           <motion.div
@@ -107,11 +107,11 @@ export default function CommandPalette({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ duration: 0.2 }}
-            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-neutral-200 flex flex-col max-h-[60vh] z-10"
+            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-soft overflow-hidden border border-neutral-200 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[72dvh] z-10"
           >
             {/* Search Input */}
-            <div className="flex items-center gap-3 px-4 py-4 border-b border-neutral-100">
-              <div className="flex-1 flex items-center bg-neutral-100/80 hover:bg-neutral-100 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary-100 border border-transparent transition-all duration-200 rounded-2xl px-4 py-2.5">
+            <div className="flex shrink-0 items-center gap-3 px-3 py-3 sm:px-4 border-b border-neutral-100">
+              <div className="min-w-0 flex-1 flex items-center bg-neutral-100/80 hover:bg-neutral-100 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary-100 border border-transparent transition-all duration-200 rounded-2xl px-4 py-2.5">
                 <Search className="w-5 h-5 text-neutral-400 mr-3" />
                 <input
                   ref={inputRef}
@@ -123,19 +123,20 @@ export default function CommandPalette({
                   }}
                   placeholder="Pencarian Arsip"
                   style={{ outline: 'none', boxShadow: 'none' }}
-                  className="flex-1 text-base bg-transparent border-none outline-none focus:outline-none ring-0 focus:ring-0 appearance-none text-neutral-800 placeholder:text-neutral-400"
+                  className="min-w-0 flex-1 text-base bg-transparent border-none outline-none focus:outline-none ring-0 focus:ring-0 appearance-none text-neutral-800 placeholder:text-neutral-400"
                 />
               </div>
               <button
                 onClick={onClose}
-                className="p-2.5 hover:bg-red-50 rounded-xl text-neutral-400 hover:text-red-600 transition-colors"
+                aria-label="Tutup pencarian"
+                className="app-icon-button hover:bg-neutral-100"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Results */}
-            <div className="overflow-y-auto p-2">
+            <div className="min-h-0 overflow-y-auto p-2">
               {filteredItems.length === 0 ? (
                 <div className="py-12 text-center text-neutral-500">
                   <p>Tidak ada hasil ditemukan untuk "{query}"</p>
@@ -177,7 +178,7 @@ export default function CommandPalette({
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-3 bg-neutral-50 border-t border-neutral-100 text-xs text-neutral-400 flex justify-center">
+            <div className="shrink-0 px-4 py-3 bg-neutral-50 border-t border-neutral-100 text-xs text-neutral-500 flex justify-center">
               <span>Gunakan tombol panah <kbd className="font-sans mx-1">↑↓</kbd> untuk navigasi</span>
             </div>
           </motion.div>

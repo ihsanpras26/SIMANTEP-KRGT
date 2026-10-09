@@ -133,9 +133,9 @@ export default function Dashboard({
   }, [activeArchives, inactiveArchives]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Stats Grid with Animated Counters */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {statCards.map((stat, index) => (
           <AnimatedStatCard
             key={stat.title}
@@ -154,34 +154,35 @@ export default function Dashboard({
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Main Chart */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="xl:col-span-2 bg-white p-6 rounded-2xl shadow-card border border-neutral-100"
+          className="min-w-0 xl:col-span-2 bg-white p-4 sm:p-6 rounded-2xl shadow-card border border-neutral-100"
         >
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col items-start justify-between gap-3 mb-6 sm:flex-row sm:items-center">
             <h3 className="text-lg font-bold text-neutral-900">
               {chartFilter === 'Tahun Ini' ? 'Volume Arsip Bulanan (Tahun Ini)' : 'Volume Arsip per Tahun'}
             </h3>
             <select
+              aria-label="Periode grafik arsip"
               value={chartFilter}
               onChange={(e) => setChartFilter(e.target.value)}
-              className="text-sm border-none bg-neutral-50 rounded-lg px-3 py-1 text-neutral-600 focus:ring-0 cursor-pointer hover:bg-neutral-100 transition-colors"
+              className="min-h-11 w-full sm:w-auto text-sm border border-neutral-200 bg-white rounded-lg px-3 py-2 text-neutral-600 focus:ring-0 cursor-pointer hover:bg-neutral-100 transition-colors"
             >
               <option>Tahun Ini</option>
               <option>5 Tahun Terakhir</option>
             </select>
           </div>
-          <div className="h-80 w-full">
+          <div className="h-64 sm:h-80 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAktif" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#1c6a52" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#1c6a52" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorInaktif" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.3} />
@@ -199,7 +200,7 @@ export default function Dashboard({
                 <Area
                   type="monotone"
                   dataKey="Aktif"
-                  stroke="#6366f1"
+                  stroke="#1c6a52"
                   strokeWidth={3}
                   fillOpacity={1}
                   fill="url(#colorAktif)"
@@ -221,10 +222,10 @@ export default function Dashboard({
 
         {/* Recent Archives */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white p-6 rounded-2xl shadow-card border border-neutral-100 flex flex-col"
+          className="min-w-0 bg-white p-4 sm:p-6 rounded-2xl shadow-card border border-neutral-100 flex flex-col"
         >
           <h3 className="text-lg font-bold text-neutral-900 mb-6 flex items-center gap-2">
             <Clock size={20} className="text-primary-500" />

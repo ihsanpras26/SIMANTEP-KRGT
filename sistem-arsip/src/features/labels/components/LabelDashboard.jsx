@@ -90,7 +90,7 @@ export default function LabelDashboard({
     };
 
     return (
-        <div className="space-y-8 pb-12">
+        <div className="space-y-6">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-end gap-6">
 
@@ -122,8 +122,8 @@ export default function LabelDashboard({
             </div>
 
             {/* Grid Content */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {/* 'All Archives' Card - Light Purple Theme */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                {/* All archives */}
                 <motion.button
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -137,7 +137,7 @@ export default function LabelDashboard({
                     }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate('/arsip')}
-                    className="group relative flex flex-col h-[160px] rounded-2xl p-6 text-left bg-primary-50 border border-primary-200 hover:border-primary-300 transition-all duration-200 hover:shadow-md"
+                    className="group relative flex flex-col min-h-[160px] rounded-2xl p-5 text-left bg-primary-50 border border-primary-200 hover:border-primary-300 transition-all duration-200 hover:shadow-md"
                 >
                     {/* Subtle gradient overlay */}
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -190,7 +190,7 @@ export default function LabelDashboard({
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => navigate(`/arsip?label=${label.id}`)}
                                 className={cn(
-                                    "group relative flex flex-col h-[160px] rounded-2xl p-6 text-left",
+                                    "group relative flex flex-col min-h-[160px] rounded-2xl p-5 text-left",
                                     "bg-white border transition-all duration-200",
                                     "hover:shadow-md",
                                     styles.border

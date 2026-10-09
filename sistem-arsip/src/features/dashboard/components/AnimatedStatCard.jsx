@@ -26,7 +26,7 @@ export default function AnimatedStatCard({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay }}
             onClick={onClick}
-            className="bg-white p-6 rounded-2xl shadow-card border border-neutral-100 relative overflow-hidden group hover:shadow-soft transition-all duration-300 cursor-pointer"
+            className="bg-white p-4 sm:p-5 rounded-2xl shadow-card border border-neutral-100 relative overflow-hidden group hover:shadow-card transition-all duration-300 cursor-pointer"
         >
             <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${bgColor} ${textColor}`}>

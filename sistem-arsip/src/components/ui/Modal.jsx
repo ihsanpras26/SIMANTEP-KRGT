@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -25,10 +26,10 @@ const Modal = ({ isOpen, onClose, children, className, size = 'default' }) => {
     };
   }, [isOpen]);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -46,7 +47,7 @@ const Modal = ({ isOpen, onClose, children, className, size = 'default' }) => {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', duration: 0.3 }}
             className={cn(
-              'relative w-full bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50',
+              'relative max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] w-full overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-soft border border-neutral-200',
               sizeClasses[size],
               className
             )}
@@ -56,17 +57,19 @@ const Modal = ({ isOpen, onClose, children, className, size = 'default' }) => {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
 const ModalHeader = ({ children, className, onClose }) => (
-  <div className={cn('flex items-center justify-between p-6 pb-4 border-b border-gray-200/50', className)}>
+  <div className={cn('sticky top-0 z-10 flex items-center justify-between gap-3 rounded-t-2xl bg-white p-4 sm:p-6 border-b border-neutral-200', className)}>
     <div className="flex-1">{children}</div>
     {onClose && (
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Tutup dialog"
         onClick={onClose}
         className="h-8 w-8 rounded-full hover:bg-gray-100"
       >
@@ -89,13 +92,13 @@ const ModalDescription = ({ children, className }) => (
 );
 
 const ModalContent = ({ children, className }) => (
-  <div className={cn('p-6', className)}>
+  <div className={cn('p-4 sm:p-6', className)}>
     {children}
   </div>
 );
 
 const ModalFooter = ({ children, className }) => (
-  <div className={cn('flex items-center justify-end gap-3 p-6 pt-4 border-t border-gray-200/50', className)}>
+  <div className={cn('flex flex-wrap items-center justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200', className)}>
     {children}
   </div>
 );

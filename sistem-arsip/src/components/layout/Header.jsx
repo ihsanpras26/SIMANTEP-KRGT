@@ -1,107 +1,77 @@
-import React, { useState } from 'react';
-import { Search, Bell, Menu, Command, ChevronDown, LogOut } from 'lucide-react';
-import { cn } from '../../lib/cn';
+import React, { useEffect, useRef, useState } from 'react';
+import { Search, Menu, ChevronDown, LogOut } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-export function Header({ 
-  title, 
-  onMenuClick, 
-  isSidebarCollapsed,
-  user,
-  onLogout,
-  onOpenCommandPalette
-}) {
+export function Header({ title, onMenuClick, mobileMenuOpen, user, onLogout, onOpenCommandPalette }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef(null);
+  const accountButtonRef = useRef(null);
+  const logoutRef = useRef(null);
+  const displayName = user?.email?.split('@')[0] || 'Admin';
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    logoutRef.current?.focus();
+    const closeOutside = event => {
+      if (!menuRef.current?.contains(event.target)) setShowUserMenu(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        setShowUserMenu(false);
+        accountButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showUserMenu]);
 
   return (
-    <header 
-      className={cn(
-        "fixed top-0 right-0 z-30 h-20 transition-all duration-300 px-8 flex items-center justify-between",
-        "bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-sm",
-        isSidebarCollapsed ? "left-[72px]" : "left-72"
-      )}
-    >
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={onMenuClick}
-          className="lg:hidden p-2 -ml-2 text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors"
-        >
-          <Menu size={20} />
+    <header className="app-header sticky top-0 z-30 flex h-[72px] min-w-0 items-center justify-between gap-3 border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <button id="mobile-menu-toggle" type="button" onClick={onMenuClick} aria-label="Buka menu navigasi" aria-expanded={mobileMenuOpen} aria-controls="app-sidebar" className="app-icon-button lg:hidden">
+          <Menu size={21} />
         </button>
-        
-        <div className="flex flex-col">
-          <h1 className="text-2xl font-display font-bold text-neutral-800 tracking-tight">{title}</h1>
-          <p className="text-xs text-neutral-500 font-medium hidden sm:block">Sistem Informasi Manajemen Arsip Terpadu</p>
+        <div className="min-w-0">
+          <p className="hidden text-xs font-medium text-neutral-500 sm:block">Ruang kerja arsip</p>
+          <h1 className="truncate text-lg font-semibold tracking-tight text-neutral-900 sm:text-xl" title={title}>{title}</h1>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-6">
-        {/* Command Palette Trigger */}
-        <button 
-          onClick={onOpenCommandPalette}
-          className="hidden md:flex items-center gap-3 px-4 py-2.5 bg-neutral-100/50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-sm text-neutral-500 transition-all duration-200 group w-64"
-        >
-          <Search size={18} className="text-neutral-400 group-hover:text-primary-500 transition-colors" />
-          <span className="flex-1 text-left">Cari Arsip Disini</span>
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+        <button type="button" onClick={onOpenCommandPalette} aria-label="Cari arsip, Ctrl atau Command K" className="flex h-11 w-11 items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-100 md:w-56 md:justify-start md:px-3 xl:w-64">
+          <Search size={18} aria-hidden="true" />
+          <span className="hidden flex-1 text-left text-sm md:block">Cari arsip...</span>
+          <kbd className="hidden rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-[11px] text-neutral-500 md:block">⌘ / Ctrl K</kbd>
         </button>
-
-        <div className="h-8 w-px bg-neutral-200 hidden sm:block" />
-
-        <div className="flex items-center gap-4">
-          <button className="relative p-2.5 text-neutral-500 hover:bg-neutral-100 hover:text-primary-600 rounded-xl transition-all duration-200">
-            <Bell size={20} />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-danger-500 rounded-full border-2 border-white shadow-sm" />
+        <div className="hidden h-8 w-px bg-neutral-200 sm:block" aria-hidden="true" />
+        <div ref={menuRef} className="relative">
+          <button ref={accountButtonRef} type="button" onClick={() => setShowUserMenu(value => !value)} aria-label={`Menu akun ${displayName}`} aria-expanded={showUserMenu} aria-controls="account-menu" className="flex min-h-11 items-center gap-2 rounded-xl p-1 text-neutral-700 hover:bg-neutral-50 sm:gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary-100 bg-primary-50 text-sm font-semibold text-primary-700">{displayName[0].toUpperCase()}</span>
+            <span className="hidden min-w-0 text-left xl:block">
+              <span className="block max-w-32 truncate text-sm font-semibold">{displayName}</span>
+              <span className="block text-xs text-neutral-500">Administrator</span>
+            </span>
+            <ChevronDown size={14} className="hidden text-neutral-500 sm:block" aria-hidden="true" />
           </button>
-          
-          <div className="relative">
-            <button 
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-neutral-50 transition-colors border border-transparent hover:border-neutral-200"
-            >
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-full flex items-center justify-center text-primary-700 font-bold border border-white shadow-sm">
-                {user?.email?.[0]?.toUpperCase() || 'A'}
-              </div>
-              <div className="hidden sm:block text-left mr-2">
-                <p className="text-sm font-semibold text-neutral-700 leading-none">{user?.email?.split('@')[0] || 'Admin'}</p>
-                <p className="text-[10px] text-neutral-500 font-medium mt-1">Administrator</p>
-              </div>
-              <ChevronDown size={14} className="text-neutral-400" />
-            </button>
-
-            <AnimatePresence>
-              {showUserMenu && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowUserMenu(false)}
-                  />
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-neutral-100 z-50 overflow-hidden"
-                  >
-                    <div className="p-4 border-b border-neutral-50 bg-neutral-50/50">
-                      <p className="text-sm font-medium text-neutral-900">Signed in as</p>
-                      <p className="text-xs text-neutral-500 truncate">{user?.email || 'admin@simantep.com'}</p>
-                    </div>
-                    <div className="p-1">
-                      <button 
-                        onClick={() => {
-                          onLogout();
-                          setShowUserMenu(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
-                      >
-                        <LogOut size={16} />
-                        Sign out
-                      </button>
-                    </div>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+          <AnimatePresence>
+            {showUserMenu && (
+              <motion.div id="account-menu" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.15 }} className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-soft">
+                <div className="border-b border-neutral-100 p-4">
+                  <p className="text-xs text-neutral-500">Masuk sebagai</p>
+                  <p className="mt-1 break-all text-sm font-medium text-neutral-800">{user?.email || displayName}</p>
+                </div>
+                <div className="p-1.5">
+                  <button ref={logoutRef} type="button" onClick={() => { setShowUserMenu(false); onLogout(); }} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-sm font-medium text-danger-700 hover:bg-danger-50">
+                    <LogOut size={17} />Keluar
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </header>

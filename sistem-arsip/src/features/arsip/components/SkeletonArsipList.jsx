@@ -6,7 +6,7 @@ export default function SkeletonArsipList({ viewMode = 'table' }) {
 
     if (viewMode === 'grid') {
         return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
                 {items.map((_, i) => (
                     <div key={i} className="bg-white rounded-2xl p-6 border border-neutral-100 shadow-sm h-[200px] flex flex-col justify-between">
                         <div className="space-y-4">
@@ -32,7 +32,7 @@ export default function SkeletonArsipList({ viewMode = 'table' }) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden animate-pulse">
             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full min-w-[1040px] text-left border-collapse">
                     <thead>
                         <tr className="border-b border-neutral-100 bg-neutral-50/50">
                             <th className="p-4 w-[50px]"><div className="h-4 w-4 bg-neutral-200 rounded"></div></th>

@@ -20,25 +20,29 @@ const AdminLoginForm = ({ onSubmit }) => {
 	return (
 		<form onSubmit={handleSubmit} className="space-y-5">
 			<div>
-				<label className="block text-sm font-medium text-neutral-700 mb-2">Email</label>
+				<label htmlFor="login-email" className="block text-sm font-medium text-neutral-700 mb-2">Email</label>
 				<input
+					id="login-email"
+					autoComplete="email"
 					type="email"
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
 					placeholder="admin@simantep.local"
 					required
-					className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl text-base focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all duration-200 outline-none"
+					className="w-full px-4 py-3 border border-neutral-300 rounded-xl text-base sm:text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all duration-200 outline-none"
 				/>
 			</div>
 			<div>
-				<label className="block text-sm font-medium text-neutral-700 mb-2">Password</label>
+				<label htmlFor="login-password" className="block text-sm font-medium text-neutral-700 mb-2">Kata sandi</label>
 				<input
+					id="login-password"
+					autoComplete="current-password"
 					type="password"
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
 					placeholder="Kata sandi"
 					required
-					className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl text-base focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all duration-200 outline-none"
+					className="w-full px-4 py-3 border border-neutral-300 rounded-xl text-base sm:text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all duration-200 outline-none"
 				/>
 			</div>
 			<Button

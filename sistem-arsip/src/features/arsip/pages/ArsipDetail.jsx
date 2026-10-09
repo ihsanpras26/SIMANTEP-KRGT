@@ -120,7 +120,7 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
     }, [arsip.arsip_labels]);
 
     return (
-        <div className="space-y-5 animate-fade-in max-w-screen-2xl mx-auto">
+        <div className="space-y-5 animate-fade-in max-w-screen-2xl mx-auto [overflow-wrap:anywhere]">
             {/* Enhanced Header with Quick Info */}
             <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -142,14 +142,14 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
                             </div>
 
                             {/* Title */}
-                            <h1 className="text-2xl font-display font-bold text-neutral-900">Detail Arsip</h1>
+                            <h1 className="text-xl font-display font-semibold text-neutral-900">Detail Arsip</h1>
                         </div>
                     </div>
 
                     {/* Action Button */}
                     <button
                         onClick={handleDownload}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 hover:shadow-lg hover:shadow-violet-600/25 transition-all font-semibold text-sm group whitespace-nowrap"
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-all font-semibold text-sm group whitespace-nowrap"
                         aria-label="Download dokumen"
                     >
                         <Download size={18} className="group-hover:-translate-y-0.5 transition-transform" />
@@ -160,8 +160,8 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
                 {/* Left Column: Document Preview */}
-                <div className="lg:col-span-7 xl:col-span-8">
-                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden lg:sticky lg:top-5 flex flex-col h-[850px]">
+                <div className="order-2 min-w-0 lg:order-1 lg:col-span-7 xl:col-span-8">
+                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden lg:sticky lg:top-24 flex flex-col h-[55dvh] min-h-[280px] lg:h-[calc(100dvh-8rem)] lg:min-h-[440px] lg:max-h-[880px]">
                         <div className="px-5 py-3.5 border-b border-neutral-200 flex justify-between items-center bg-gradient-to-r from-neutral-50/50 to-white">
                             <h3 className="font-bold text-neutral-900 flex items-center gap-2.5 text-sm">
                                 <div className="p-1.5 bg-primary-100 text-primary-600 rounded-lg">
@@ -204,10 +204,10 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
                 </div>
 
                 {/* Right Column: Information Sidebar */}
-                <div className="lg:col-span-5 xl:col-span-4 space-y-4 scroll-smooth">
+                <div className="order-1 min-w-0 space-y-4 lg:order-2 lg:col-span-5 xl:col-span-4">
 
                     {/* 1. Primary Info Card - Perihal & Deskripsi */}
-                    <div className="bg-gradient-to-br from-white to-neutral-50/30 rounded-2xl shadow-sm border border-neutral-200 p-5 relative overflow-hidden scroll-mt-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 relative overflow-hidden scroll-mt-24">
                         <div className="absolute top-0 right-0 p-6 opacity-[0.03] pointer-events-none">
                             <FileText size={120} className="text-neutral-900" strokeWidth={1.5} />
                         </div>
@@ -235,7 +235,7 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
                     </div>
 
                     {/* 2. Document Metadata Card */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-24">
                         <div className="px-5 py-3.5 bg-gradient-to-r from-neutral-50 to-white border-b border-neutral-200">
                             <h3 className="font-bold text-neutral-900 flex items-center gap-2 text-sm">
                                 <div className="p-1 bg-violet-100 text-violet-600 rounded-lg">
@@ -258,7 +258,7 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
                             </div>
 
                             {/* Tanggal & Klasifikasi */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
                                 <div className="group">
                                     <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5 block flex items-center gap-1">
                                         <Calendar size={10} />
@@ -295,7 +295,7 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
                     </div>
 
                     {/* 3. Parties Involved Card */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-24">
                         <div className="px-5 py-3.5 bg-gradient-to-r from-neutral-50 to-white border-b border-neutral-200">
                             <h3 className="font-bold text-neutral-900 flex items-center gap-2 text-sm">
                                 <div className="p-1 bg-emerald-100 text-emerald-600 rounded-lg">
@@ -338,7 +338,7 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
 
                     {/* 4. Labels/Tags (if available) */}
                     {labels.length > 0 && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-4">
+                        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-24">
                             <div className="px-5 py-3.5 bg-gradient-to-r from-neutral-50 to-white border-b border-neutral-200">
                                 <h3 className="font-bold text-neutral-900 flex items-center gap-2 text-sm">
                                     <div className="p-1 bg-pink-100 text-pink-600 rounded-lg">
@@ -364,7 +364,7 @@ function ArsipDetailContent({ arsip, onBack, klasifikasiList }) {
                     )}
 
                     {/* 5. Enhanced Retention Timeline */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden scroll-mt-24">
                         <div className="px-5 py-3.5 bg-gradient-to-r from-neutral-50 to-white border-b border-neutral-200">
                             <div className="flex items-center justify-between">
                                 <h3 className="font-bold text-neutral-900 flex items-center gap-2 text-sm">

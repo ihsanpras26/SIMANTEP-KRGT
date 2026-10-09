@@ -57,3 +57,11 @@ hasil pemeriksaan satu baris tidak menggantikan dokumentasi skema atau audit RLS
 Daftar arsip menyimpan pencarian, filter, sorting, dan pagination di URL. Detail arsip
 menggunakan `/arsip/:id` sehingga dapat dibuka langsung dan di-refresh.
 Lihat [panduan tahap 1](../docs/ui-ux-tahap-1.md) untuk perilaku query dan pemeriksaan manual.
+
+## Sistem visual
+
+Token warna, font, dan bayangan menggunakan `@theme` Tailwind CSS 4 di
+`src/styles/index.css`. Inter dibundel melalui `@fontsource/inter` pada entry point;
+tidak memerlukan permintaan font ke layanan eksternal. Kerangka aplikasi menggunakan
+sidebar desktop pada lebar 1.024 px ke atas dan drawer pada layar lebih kecil.
+Lihat [panduan tahap 2](../docs/ui-ux-tahap-2.md) untuk ukuran, aturan layout, dan pratinjau.

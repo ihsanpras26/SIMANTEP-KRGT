@@ -344,7 +344,7 @@ export default function ArsipForm({
       <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
 
         {/* Section 1: Primary Information */}
-        <div className="bg-white rounded-2xl border-2 border-neutral-200 p-6 md:p-8 shadow-sm">
+        <div className="bg-white rounded-2xl border border-neutral-200 p-5 sm:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-primary-50 rounded-lg">
               <FileText size={24} className="text-primary-600" />
@@ -355,7 +355,7 @@ export default function ArsipForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Nomor Surat - Full width with auto-detect */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-neutral-700 mb-2">
@@ -456,7 +456,7 @@ export default function ArsipForm({
         </div>
 
         {/* Section 2: Label & Kategori */}
-        <div className="bg-gradient-to-br from-neutral-50 to-white rounded-2xl border border-neutral-200 p-6 md:p-8">
+        <div className="bg-white rounded-2xl border border-neutral-200 p-5 sm:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-purple-50 rounded-lg">
               <Tag size={24} className="text-purple-600" />
@@ -482,7 +482,7 @@ export default function ArsipForm({
                 );
               })}
 
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setShowLabelDropdown(!showLabelDropdown)}
@@ -498,7 +498,7 @@ export default function ArsipForm({
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 5 }}
-                      className="absolute top-full left-0 mt-2 w-64 bg-white border border-neutral-100 rounded-xl shadow-lg z-50 overflow-hidden"
+                      className="absolute top-full left-0 mt-2 w-full sm:w-64 bg-white border border-neutral-100 rounded-xl shadow-lg z-50 overflow-hidden"
                     >
                       <div className="p-2 border-b border-neutral-50">
                         <input
@@ -571,7 +571,7 @@ export default function ArsipForm({
                 className="overflow-hidden"
               >
                 <div className="p-6 pt-0 space-y-6 border-t border-neutral-100">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Pengirim */}
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -653,19 +653,19 @@ export default function ArsipForm({
         </div>
 
         {/* Action Buttons - Sticky */}
-        <div className="sticky bottom-0 bg-white border-t border-neutral-200 p-6 -mx-6 flex gap-3 shadow-lg rounded-t-2xl">
+        <div className="sticky bottom-0 z-20 flex flex-wrap gap-3 rounded-2xl border border-neutral-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft backdrop-blur-sm">
           <button
             type="button"
             onClick={onFinish}
             disabled={loading}
-            className="flex-1 px-6 py-3 bg-white border-2 border-neutral-200 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-50 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-3 bg-white border border-neutral-200 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-50 transition-colors disabled:opacity-50"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-[2] px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-[2] px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>

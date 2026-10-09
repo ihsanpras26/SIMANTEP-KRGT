@@ -43,5 +43,6 @@ Lihat [panduan aplikasi](sistem-arsip/README.md) untuk konfigurasi, perintah, da
 - [Aturan struktur dan alur data](docs/struktur-proyek.md)
 - [Hasil audit struktur](docs/audit-struktur.md)
 - [Perbaikan UI/UX tahap 1 dan panduan verifikasi](docs/ui-ux-tahap-1.md)
+- [Sistem visual, layout responsif, dan pratinjau tahap 2](docs/ui-ux-tahap-2.md)
 
 Direktori aplikasi tetap `sistem-arsip/`; pada Vercel gunakan direktori ini sebagai **Root Directory**.

@@ -54,7 +54,7 @@ export default function LabelBadge({ label, className, size = 'sm', showDelete =
         >
             <span
                 className={cn(
-                    "rounded-full",
+                    "rounded-full bg-current opacity-80 shrink-0",
                     size === 'sm' ? "w-1.5 h-1.5" : "w-2 h-2"
                 )}
                 style={{
@@ -62,18 +62,12 @@ export default function LabelBadge({ label, className, size = 'sm', showDelete =
                         ? label.color
                         : undefined
                 }}
-                className={cn(
-                    // If we have a class, we need a way to set the dot color. 
-                    // Tailwind arbitrary values usually work but here we rely on the parent text color 
-                    // or specific logic. For simplicity, let's assume the dot uses `currentColor` or 
-                    // we map dot backgrounds too.
-                    // Actually, let's simple use 'bg-current' with opacity if possible, or mapping.
-                    "bg-current opacity-80"
-                )}
             />
             {label.name}
             {showDelete && (
                 <button
+                    type="button"
+                    aria-label={`Hapus label ${label.name}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onDelete?.(label);
