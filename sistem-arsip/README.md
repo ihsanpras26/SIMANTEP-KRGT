@@ -10,12 +10,26 @@ Dari direktori `sistem-arsip/`, jalankan `npm ci`, salin `.env.example` ke `.env
 | --- | --- |
 | `VITE_SUPABASE_URL` | URL proyek Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Kunci publik legacy anon, dilindungi kebijakan RLS |
+| `VITE_AUTH_ENABLED` | Sementara default `false`: akses tanpa login untuk development; isi `true` dan rebuild untuk mengaktifkan login |
 | `VITE_ADMIN_EMAIL` | Email yang diperiksa alur login saat ini |
 | `VITE_ADMIN_PASSWORD` | Pemeriksaan password pada alur login saat ini; terbaca di browser |
 
 Semua `VITE_*` masuk ke bundle frontend. Jangan gunakan service-role/secret key.
 Lihat [temuan autentikasi](../docs/audit-struktur.md) sebelum memakai konfigurasi admin di produksi.
 Jika konfigurasi Supabase belum tersedia, aplikasi menampilkan pesan konfigurasi.
+
+## Login sementara dinonaktifkan
+
+Aplikasi langsung membuka dashboard dan seluruh rute tanpa sesi login. Header menampilkan
+“Mode development” sebagai pengganti menu akun/keluar. Ini berlaku pada server development
+maupun hasil build yang di-deploy; siapa pun yang dapat membuka situs dapat mengakses aplikasi.
+Konfigurasi URL dan kunci publik Supabase tetap diperlukan.
+
+Untuk mengembalikan login, set `VITE_AUTH_ENABLED=true` pada environment lokal atau Vercel,
+lalu restart server development atau lakukan build/deploy ulang. Akun dan alur login lama
+masih tersedia. Perubahan ini tidak mengubah Supabase Auth maupun kebijakan database.
+Saat diperiksa, kebijakan tabel `arsip`, `klasifikasi`, `labels`, dan `arsip_labels` sudah
+mengizinkan akses publik; login frontend bukan pengganti pembatasan akses database.
 
 ## Perintah
 

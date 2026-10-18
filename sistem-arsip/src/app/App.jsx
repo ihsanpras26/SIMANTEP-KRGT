@@ -45,6 +45,9 @@ import img10 from '../assets/krgt (10).jpeg';
 import img11 from '../assets/krgt (11).jpeg';
 import img12 from '../assets/krgt (12).jpeg';
 
+// Temporary development access. Set VITE_AUTH_ENABLED=true and rebuild to restore login.
+const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
+
 const backgroundImages = [img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12];
 
 
@@ -108,9 +111,12 @@ export default function App() {
     useEffect(() => {
         if (!supabase) return;
 
-        // Auth Session
-        supabase.auth.getSession().then(({ data }) => setSession(data?.session || null));
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, currentSession) => setSession(currentSession));
+        // Skip session handling while login is temporarily disabled.
+        let authListener;
+        if (AUTH_ENABLED) {
+            supabase.auth.getSession().then(({ data }) => setSession(data?.session || null));
+            ({ data: authListener } = supabase.auth.onAuthStateChange((_event, currentSession) => setSession(currentSession)));
+        }
 
         // Realtime Subscriptions
         const arsipChannel = supabase.channel('public:arsip')
@@ -335,7 +341,7 @@ export default function App() {
     const [currentSlide, setCurrentSlide] = useState(0);
 
     useEffect(() => {
-        if (session) return; // Don't run slideshow if logged in
+        if (!AUTH_ENABLED || session) return;
 
         const timer = setInterval(() => {
             setCurrentSlide((prev) => (prev + 1) % backgroundImages.length);
@@ -346,7 +352,7 @@ export default function App() {
 
     if (!supabase) return <ConfigurationMessage />;
 
-    if (!session) {
+    if (AUTH_ENABLED && !session) {
         return (
             <div className="grid min-h-dvh bg-white lg:grid-cols-2">
                 <section aria-label="Kebun Raya Gunung Tidar" className="relative hidden min-h-dvh overflow-hidden bg-primary-950 lg:block">
@@ -420,8 +426,8 @@ export default function App() {
 
     return (
         <Layout
-            user={session.user}
-            onLogout={handleLogout}
+            user={session?.user}
+            onLogout={AUTH_ENABLED ? handleLogout : undefined}
             title={getPageTitle(location.pathname)}
             arsipList={arsipList}
             setSelectedArsipDetail={handleArsipSelect}

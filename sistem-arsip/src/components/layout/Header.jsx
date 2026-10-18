@@ -48,7 +48,7 @@ export function Header({ title, onMenuClick, mobileMenuOpen, user, onLogout, onO
           <kbd className="hidden rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-[11px] text-neutral-500 md:block">⌘ / Ctrl K</kbd>
         </button>
         <div className="hidden h-8 w-px bg-neutral-200 sm:block" aria-hidden="true" />
-        <div ref={menuRef} className="relative">
+        {onLogout ? <div ref={menuRef} className="relative">
           <button ref={accountButtonRef} type="button" onClick={() => setShowUserMenu(value => !value)} aria-label={`Menu akun ${displayName}`} aria-expanded={showUserMenu} aria-controls="account-menu" className="flex min-h-11 items-center gap-2 rounded-xl p-1 text-neutral-700 hover:bg-neutral-50 sm:gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary-100 bg-primary-50 text-sm font-semibold text-primary-700">{displayName[0].toUpperCase()}</span>
             <span className="hidden min-w-0 text-left xl:block">
@@ -72,7 +72,9 @@ export function Header({ title, onMenuClick, mobileMenuOpen, user, onLogout, onO
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </div> : (
+          <span className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-xs font-medium text-primary-700">Mode development</span>
+        )}
       </div>
     </header>
   );
