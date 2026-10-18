@@ -1,189 +1,264 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Command, FileText, FolderKanban, Plus, Settings, LogOut, X, ArrowRight, Archive } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { matchesArsipSearch } from '../../features/arsip/utils/listState';
+import { useState, useEffect, useRef, useMemo, useId } from "react";
+import {
+  Search,
+  ArrowUpRight,
+  ArrowDown,
+  ArrowUp,
+  CornerDownLeft,
+  FileText,
+  FolderKanban,
+  Plus,
+  LayoutDashboard,
+  Tag,
+  X,
+  LoaderCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useArsip } from "../../features/arsip/hooks/useArsip";
+import { Modal } from "../ui/Modal";
+
+const EMPTY_ACTIONS = [];
 
 export default function CommandPalette({
   isOpen,
   onClose,
-  actions = [],
-  arsipList = [],
-  setSelectedArsipDetail
+  actions = EMPTY_ACTIONS,
+  setSelectedArsipDetail,
+  onNavigate,
 }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = useId();
   const navigate = useNavigate();
-
-  // Default actions
-  const defaultActions = useMemo(() => [
-    { id: 'new-arsip', label: 'Tambah Arsip Baru', icon: Plus, action: () => navigate('/arsip/tambah') },
-    { id: 'dashboard', label: 'Go to Dashboard', icon: Command, action: () => navigate('/') },
-    { id: 'all-arsip', label: 'Lihat Semua Arsip', icon: FileText, action: () => navigate('/arsip') },
-    { id: 'klasifikasi', label: 'Kelola Klasifikasi', icon: FolderKanban, action: () => navigate('/klasifikasi') },
-  ], [navigate]);
-
-  // Filtered items
-  const filteredItems = useMemo(() => {
-    if (!query) return defaultActions;
-
-    const lowerQuery = query.toLowerCase();
-
-    // Filter actions
-    const matchedActions = [...defaultActions, ...actions].filter(item =>
-      item.label?.toLowerCase().includes(lowerQuery)
-    );
-
-    // Filter archives
-    const matchedArchives = arsipList.filter(arsip => matchesArsipSearch(arsip, query)
-    ).slice(0, 5).map(arsip => ({
-      id: `arsip-${arsip.id}`,
-      label: arsip.perihal,
-      subLabel: arsip.nomorSurat,
-      icon: Archive,
-      action: () => {
-        if (setSelectedArsipDetail) setSelectedArsipDetail(arsip);
-        else navigate(`/arsip/${encodeURIComponent(arsip.id)}`);
-      }
-    }));
-
-    return [...matchedActions, ...matchedArchives];
-  }, [query, actions, arsipList, defaultActions, navigate, setSelectedArsipDetail]);
-
-  useEffect(() => setSelectedIndex(0), [query]);
+  const result = useArsip(
+    { searchTerm, page: 1, pageSize: 10 },
+    { enabled: isOpen && searchTerm.trim().length > 0 },
+  );
+  const pendingDebounce = query.trim() !== searchTerm;
+  const searching =
+    Boolean(query.trim()) && (pendingDebounce || result.isFetching);
+  const archives =
+    !pendingDebounce &&
+    !result.isPlaceholderData &&
+    !result.isError &&
+    searchTerm
+      ? result.data?.data || []
+      : [];
 
   useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(query.trim()), 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+  useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-      setQuery('');
+      setQuery("");
+      setSearchTerm("");
       setSelectedIndex(0);
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!isOpen) return;
-
-      if (e.key === 'ArrowDown' && filteredItems.length) {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % filteredItems.length);
-      } else if (e.key === 'ArrowUp' && filteredItems.length) {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + filteredItems.length) % filteredItems.length);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (filteredItems[selectedIndex]) {
-          filteredItems[selectedIndex].action();
-          onClose();
-        }
-      } else if (e.key === 'Escape') {
-        onClose();
-      }
+  const defaultActions = useMemo(() => {
+    const go = (path) => {
+      onNavigate?.(path);
+      navigate(path);
     };
+    return [
+      {
+        id: "new",
+        label: "Tambah arsip",
+        description: "Simpan dokumen baru",
+        icon: Plus,
+        action: () => go("/arsip/tambah"),
+      },
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        description: "Gambaran seluruh arsip",
+        icon: LayoutDashboard,
+        action: () => go("/"),
+      },
+      {
+        id: "archives",
+        label: "Daftar arsip",
+        description: "Telusuri koleksi dokumen",
+        icon: FileText,
+        action: () => go("/arsip"),
+      },
+      {
+        id: "labels",
+        label: "Label & kategori",
+        description: "Atur kelompok dokumen",
+        icon: Tag,
+        action: () => go("/label"),
+      },
+      {
+        id: "classification",
+        label: "Klasifikasi",
+        description: "Kelola kode dan retensi",
+        icon: FolderKanban,
+        action: () => go("/klasifikasi"),
+      },
+    ];
+  }, [navigate, onNavigate]);
+  const items = [...defaultActions, ...actions].filter(
+    (item) =>
+      !query.trim() ||
+      item.label.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+  archives.forEach((archive) =>
+    items.push({
+      id: `archive-${archive.id}`,
+      label: archive.perihal || "Tanpa perihal",
+      description: archive.nomorSurat || "Tanpa nomor surat",
+      icon: FileText,
+      action: () => {
+        if (setSelectedArsipDetail) setSelectedArsipDetail(archive);
+        else navigate(`/arsip/${encodeURIComponent(archive.id)}`);
+      },
+    }),
+  );
+  const activeIndex = Math.min(selectedIndex, items.length - 1);
+  const activeId =
+    activeIndex >= 0 ? `${listId}-${items[activeIndex].id}` : undefined;
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredItems, selectedIndex, onClose]);
+  useEffect(() => {
+    listRef.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeId]);
+  const execute = (item) => {
+    onClose();
+    item.action();
+  };
+  const handleKey = (event) => {
+    if (
+      (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+      items.length
+    ) {
+      event.preventDefault();
+      setSelectedIndex(
+        (value) =>
+          (Math.min(value, items.length - 1) +
+            (event.key === "ArrowDown" ? 1 : -1) +
+            items.length) %
+          items.length,
+      );
+    } else if (event.key === "Enter" && items[activeIndex]) {
+      event.preventDefault();
+      execute(items[activeIndex]);
+    }
+  };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-4 sm:pt-[12vh]"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+      className="command-dialog"
+      aria-label="Pencarian cepat"
+      initialFocusRef={inputRef}
+    >
+      <div className="command-search">
+        <Search size={21} aria-hidden="true" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSelectedIndex(0);
+          }}
+          onKeyDown={handleKey}
+          role="combobox"
+          aria-label="Cari arsip atau halaman"
+          aria-expanded="true"
+          aria-autocomplete="list"
+          aria-controls={listId}
+          aria-activedescendant={activeId}
+          autoComplete="off"
+          placeholder="Cari arsip atau buka halaman..."
+        />
+        <button
+          type="button"
+          onClick={onClose}
+          className="icon-button"
+          aria-label="Tutup pencarian"
         >
-          {/* Backdrop with blur */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-neutral-900/20 backdrop-blur-sm"
-            onClick={onClose}
-          />
-
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            transition={{ duration: 0.2 }}
-            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-soft overflow-hidden border border-neutral-200 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[72dvh] z-10"
-          >
-            {/* Search Input */}
-            <div className="flex shrink-0 items-center gap-3 px-3 py-3 sm:px-4 border-b border-neutral-100">
-              <div className="min-w-0 flex-1 flex items-center bg-neutral-100/80 hover:bg-neutral-100 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary-100 border border-transparent transition-all duration-200 rounded-2xl px-4 py-2.5">
-                <Search className="w-5 h-5 text-neutral-400 mr-3" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setSelectedIndex(0);
-                  }}
-                  placeholder="Pencarian Arsip"
-                  style={{ outline: 'none', boxShadow: 'none' }}
-                  className="min-w-0 flex-1 text-base bg-transparent border-none outline-none focus:outline-none ring-0 focus:ring-0 appearance-none text-neutral-800 placeholder:text-neutral-400"
-                />
-              </div>
-              <button
-                onClick={onClose}
-                aria-label="Tutup pencarian"
-                className="app-icon-button hover:bg-neutral-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Results */}
-            <div className="min-h-0 overflow-y-auto p-2">
-              {filteredItems.length === 0 ? (
-                <div className="py-12 text-center text-neutral-500">
-                  <p>Tidak ada hasil ditemukan untuk "{query}"</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredItems.map((item, index) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        item.action();
-                        onClose();
-                      }}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors duration-100 ${index === selectedIndex
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className={`p-2 rounded-lg flex-shrink-0 ${index === selectedIndex ? 'bg-primary-100 text-primary-600' : 'bg-neutral-100 text-neutral-500'
-                          }`}>
-                          <item.icon size={18} />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-medium truncate">{item.label}</span>
-                          {item.subLabel && (
-                            <span className="text-xs text-neutral-400 truncate">{item.subLabel}</span>
-                          )}
-                        </div>
-                      </div>
-                      {index === selectedIndex && (
-                        <ArrowRight size={16} className="text-primary-400 flex-shrink-0" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="shrink-0 px-4 py-3 bg-neutral-50 border-t border-neutral-100 text-xs text-neutral-500 flex justify-center">
-              <span>Gunakan tombol panah <kbd className="font-sans mx-1">↑↓</kbd> untuk navigasi</span>
-            </div>
-          </motion.div>
+          <X size={18} />
+        </button>
+      </div>
+      <div className="command-results" ref={listRef}>
+        <div className="command-section-label">
+          {query.trim() ? "HASIL PENCARIAN" : "AKSES CEPAT"}
+          {searching && (
+            <LoaderCircle
+              size={14}
+              className="loading-spinner"
+              aria-label="Mencari"
+            />
+          )}
         </div>
-      )}
-    </AnimatePresence>
+        <div id={listId} role="listbox" aria-label="Hasil pencarian">
+          {items.map((item, index) => (
+            <button
+              id={`${listId}-${item.id}`}
+              key={item.id}
+              type="button"
+              role="option"
+              aria-selected={index === activeIndex}
+              tabIndex={-1}
+              className="command-option"
+              onMouseEnter={() => setSelectedIndex(index)}
+              onClick={() => execute(item)}
+            >
+              <span className="command-option-icon">
+                <item.icon size={19} />
+              </span>
+              <span className="command-option-copy">
+                <span>{item.label}</span>
+                <small>{item.description || item.subLabel}</small>
+              </span>
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        {!items.length && !searching && !result.isError && (
+          <div className="empty-state">
+            <Search size={24} />
+            <p>Tidak ada hasil untuk “{query}”.</p>
+            <span>Coba nomor surat atau kata lain pada perihal.</span>
+          </div>
+        )}
+        {result.isError && searchTerm && !pendingDebounce && (
+          <div className="command-error" role="alert">
+            Arsip belum dapat dimuat.
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => result.refetch()}
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
+        <span className="sr-only" role="status">
+          {searching ? "Mencari arsip" : `${items.length} hasil tersedia`}
+        </span>
+      </div>
+      <div className="command-footer">
+        <span>
+          <ArrowUp size={12} />
+          <ArrowDown size={12} /> pilih
+        </span>
+        <span>
+          <CornerDownLeft size={12} /> buka
+        </span>
+        <span>
+          <kbd>esc</kbd> tutup
+        </span>
+      </div>
+    </Modal>
   );
 }

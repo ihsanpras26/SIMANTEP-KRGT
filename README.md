@@ -1,7 +1,7 @@
 # SIMANTEP KRGT
 
 Sistem Informasi Manajemen Arsip Terpadu untuk UPT Kebun Raya Gunung Tidar.
-Aplikasi menggunakan React, Vite, Tailwind CSS, Supabase, React Query, dan Zustand.
+Aplikasi menggunakan React, Vite, Tailwind CSS, Supabase, dan React Query.
 
 ## Mulai mengembangkan
 
@@ -35,11 +35,11 @@ Lihat [panduan aplikasi](sistem-arsip/README.md) untuk konfigurasi, perintah, da
      dev/              Bantuan HMR khusus development
      features/         arsip, auth, dashboard, klasifikasi, labels
      lib/              Klien integrasi dan helper umum
-     stores/           State Zustand lintas fitur
-     styles/           CSS global dan animasi
+     styles/           Token desain dan CSS responsif
      main.jsx          Entry point dan providers
 ```
 
+- [Perombakan dashboard SaaS](docs/perombakan-saas.md)
 - [Aturan struktur dan alur data](docs/struktur-proyek.md)
 - [Hasil audit struktur](docs/audit-struktur.md)
 - [Perbaikan UI/UX tahap 1 dan panduan verifikasi](docs/ui-ux-tahap-1.md)

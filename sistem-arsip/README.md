@@ -6,16 +6,29 @@ Panduan arsitektur tersedia di [docs/struktur-proyek.md](../docs/struktur-proyek
 
 Dari direktori `sistem-arsip/`, jalankan `npm ci`, salin `.env.example` ke `.env`, lalu isi:
 
-| Variabel | Penggunaan |
-| --- | --- |
-| `VITE_SUPABASE_URL` | URL proyek Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Kunci publik legacy anon, dilindungi kebijakan RLS |
-| `VITE_ADMIN_EMAIL` | Email yang diperiksa alur login saat ini |
-| `VITE_ADMIN_PASSWORD` | Pemeriksaan password pada alur login saat ini; terbaca di browser |
+| Variabel                        | Penggunaan                                                           |
+| ------------------------------- | -------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | URL proyek Supabase                                                  |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Kunci publishable publik Supabase (disarankan)                       |
+| `VITE_SUPABASE_ANON_KEY`        | Alternatif kunci publik legacy anon jika publishable key tidak diisi |
+| `VITE_ADMIN_EMAIL`              | Email akun admin yang diizinkan oleh antarmuka; wajib diisi          |
 
-Semua `VITE_*` masuk ke bundle frontend. Jangan gunakan service-role/secret key.
-Lihat [temuan autentikasi](../docs/audit-struktur.md) sebelum memakai konfigurasi admin di produksi.
-Jika konfigurasi Supabase belum tersedia, aplikasi menampilkan pesan konfigurasi.
+Semua `VITE_*` masuk ke bundle frontend. Jangan gunakan service-role/secret key atau
+menyimpan kata sandi dalam environment frontend. Login memverifikasi kata sandi langsung
+melalui Supabase Auth (`signInWithPassword`); akun admin harus sudah tersedia di Supabase.
+Jika koneksi atau email admin belum dikonfigurasi, aplikasi menampilkan pesan konfigurasi
+dan tidak memuat data.
+
+Pemeriksaan email dan `getSession` hanya mengatur antarmuka klien. Kebijakan RLS Supabase
+tetap harus membatasi akses baca/tulis tabel sesuai akun yang berwenang; menyembunyikan
+halaman bukan pengganti otorisasi database. Perubahan frontend ini tidak mengubah skema
+atau RLS. Sesi tersimpan dengan email yang tidak cocok tidak membuka ruang kerja.
+
+Query data dan langganan realtime dipasang setelah sesi admin tersedia. Pergantian akun
+atau keluar membatalkan query berjalan dan menghapus cache sebelum sesi berikutnya
+ditampilkan. Kegagalan keluar ditampilkan kepada pengguna dan tidak dianggap berhasil.
+Dashboard memuat seluruh arsip hanya ketika rutenya dibuka; daftar tetap memakai
+pagination server dan pencarian cepat mengambil hasil hanya ketika dialog dibuka.
 
 ## Perintah
 
@@ -24,6 +37,7 @@ npm run dev               # Server pengembangan
 npm run check:structure   # Impor relatif dan keterjangkauan kode dari entry point
 npm run lint              # Pemeriksaan JavaScript, JSX, dan React Hooks
 npm test                  # Tes regresi dengan respons Supabase contoh
+npm run test:e2e          # Uji alur browser dengan data contoh lokal
 npm run build             # Bundle produksi ke dist/
 npm run preview           # Meninjau hasil build
 ```
@@ -55,13 +69,21 @@ hasil pemeriksaan satu baris tidak menggantikan dokumentasi skema atau audit RLS
 `vercel.json` mengarahkan rute SPA ke `index.html` agar refresh URL seperti `/arsip` bekerja.
 
 Daftar arsip menyimpan pencarian, filter, sorting, dan pagination di URL. Detail arsip
-menggunakan `/arsip/:id` sehingga dapat dibuka langsung dan di-refresh.
-Lihat [panduan tahap 1](../docs/ui-ux-tahap-1.md) untuk perilaku query dan pemeriksaan manual.
+menggunakan `/arsip/:id`; pengeditan menggunakan `/arsip/:id/edit`, sehingga keduanya
+dapat dibuka langsung dan di-refresh. Parameter `from` mempertahankan URL daftar dan
+filternya saat kembali. Setiap halaman fitur dimuat terpisah saat dibuka.
+Lihat [panduan perombakan](../docs/perombakan-saas.md) untuk perilaku dan hasil verifikasi terbaru.
 
 ## Sistem visual
 
-Token warna, font, dan bayangan menggunakan `@theme` Tailwind CSS 4 di
+Token warna dan font menggunakan `@theme` Tailwind CSS 4 di
 `src/styles/index.css`. Inter dibundel melalui `@fontsource/inter` pada entry point;
 tidak memerlukan permintaan font ke layanan eksternal. Kerangka aplikasi menggunakan
 sidebar desktop pada lebar 1.024 px ke atas dan drawer pada layar lebih kecil.
-Lihat [panduan tahap 2](../docs/ui-ux-tahap-2.md) untuk ukuran, aturan layout, dan pratinjau.
+Desain mengikuti arahan UX terbaru: mode terang sebagai bawaan, mode gelap tersimpan, aksen violet dan amber,
+serta pemisah yang sederhana. Dokumen tahap 1/2 merupakan catatan versi terdahulu.
+
+Sebelum uji browser pertama, jalankan `npx playwright install chromium`. Alternatifnya,
+isi `PLAYWRIGHT_CHROMIUM_PATH` dengan path Chromium yang sudah terpasang. Tes menyalakan
+server lokal dengan konfigurasi contoh; tidak membaca atau mengubah database produksi.
+Hasil browser tersimpan di `work/browser-results/` (diabaikan Git).

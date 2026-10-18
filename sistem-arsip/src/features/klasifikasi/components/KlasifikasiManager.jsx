@@ -1,262 +1,333 @@
-import React, { useState } from 'react';
-import { Plus, Search, FolderKanban, Edit, Trash2, ChevronRight, ChevronDown, FolderOpen, FileText } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../../../lib/cn';
-import { useKlasifikasi } from '../hooks/useKlasifikasi';
+import { useMemo, useRef, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FolderTree,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../../../lib/supabaseClient";
+import {
+  Modal,
+  ModalHeader,
+  ModalTitle,
+  ModalContent,
+} from "../../../components/ui";
+import { useKlasifikasi } from "../hooks/useKlasifikasi";
+import {
+  deleteKlasifikasi,
+  groupKlasifikasi,
+} from "../services/klasifikasiService";
+import KlasifikasiForm from "./KlasifikasiForm";
 
-const KlasifikasiManager = ({ setEditingKlasifikasi, setDeleteConfirmModal, openModal }) => {
-    const { data: klasifikasiData } = useKlasifikasi();
-    const klasifikasiList = klasifikasiData || [];
-    const [searchKode, setSearchKode] = useState('');
-    const [expandedCategories, setExpandedCategories] = useState({});
+function Retention({ item }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
+      <span>
+        Aktif{" "}
+        <span className="text-[var(--text-secondary)]">
+          {item.retensiAktif === null || item.retensiAktif === undefined
+            ? "—"
+            : `${item.retensiAktif} tahun`}
+        </span>
+      </span>
+      <span>
+        Inaktif{" "}
+        <span className="text-[var(--text-secondary)]">
+          {item.retensiInaktif === null || item.retensiInaktif === undefined
+            ? "—"
+            : `${item.retensiInaktif} tahun`}
+        </span>
+      </span>
+    </div>
+  );
+}
 
-    const handleEdit = (klasifikasi) => {
-        setEditingKlasifikasi(klasifikasi);
-        openModal && openModal();
-    };
+export default function KlasifikasiManager() {
+  const query = useKlasifikasi();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState({});
+  const [dialog, setDialog] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const submitting = useRef(false);
+  const groups = useMemo(
+    () => groupKlasifikasi(query.data || [], search),
+    [query.data, search],
+  );
+  const deletion = useMutation({
+    mutationFn: (id) => deleteKlasifikasi(supabase, id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["klasifikasi"] }),
+        queryClient.invalidateQueries({ queryKey: ["arsip"] }),
+      ]);
+      setMessage("Klasifikasi berhasil dihapus.");
+      setDialog(null);
+    },
+  });
+  const closeDialog = () => {
+    if (!busy && !deletion.isPending) setDialog(null);
+  };
+  const handleDelete = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    try {
+      await deletion.mutateAsync(dialog.item.id);
+    } catch {
+      /* Keep the confirmation open when deletion fails. */
+    } finally {
+      submitting.current = false;
+    }
+  };
+  const openEditor = (item) => {
+    setMessage("");
+    setDialog({ kind: "edit", item });
+  };
+  const openDelete = (item) => {
+    deletion.reset();
+    setMessage("");
+    setDialog({ kind: "delete", item });
+  };
 
-    const handleDelete = (id, kode) => {
-        setDeleteConfirmModal({
-            show: true,
-            id,
-            message: `Anda yakin ingin menghapus kode klasifikasi "${kode}"? Tindakan ini tidak dapat diurungkan.`
-        });
-    };
-
-    const toggleCategory = (code) => {
-        setExpandedCategories(prev => ({
-            ...prev,
-            [code]: !prev[code]
-        }));
-    };
-
-    // Filter & Group Logic
-    const filteredKlasifikasi = klasifikasiList.filter(k =>
-        k.kode.toLowerCase().includes(searchKode.toLowerCase()) ||
-        k.deskripsi.toLowerCase().includes(searchKode.toLowerCase())
-    );
-
-    const groupedKlasifikasi = filteredKlasifikasi.reduce((acc, k) => {
-        const mainCode = k.kode.split('.')[0];
-        if (!acc[mainCode]) acc[mainCode] = [];
-        acc[mainCode].push(k);
-        return acc;
-    }, {});
-
-    // Ensure all main codes exist even if empty (for structure)
-    const allMainCodes = Array.from(new Set(filteredKlasifikasi.map(k => k.kode.split('.')[0])));
-    allMainCodes.forEach(code => {
-        if (!groupedKlasifikasi[code]) groupedKlasifikasi[code] = [];
-    });
-
-    return (
-        <div className="space-y-6">
-            {/* Header Actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="relative group flex-1 w-full sm:w-auto max-w-md">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="text-neutral-400 group-focus-within:text-primary-500 transition-colors" size={20} />
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Cari kode atau deskripsi..."
-                        value={searchKode}
-                        onChange={(e) => setSearchKode(e.target.value)}
-                        className="block w-full pl-10 pr-10 py-3 bg-white border border-neutral-200 rounded-xl text-sm shadow-sm placeholder-neutral-400
-                        focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                    />
-                    {searchKode && (
-                        <button
-                            onClick={() => setSearchKode('')}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600"
-                        >
-                            <Search size={16} className="opacity-0" /> {/* Spacer */}
-                            <span className="sr-only">Clear</span>
-                            <svg className="h-5 w-5 absolute right-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    )}
-                </div>
-
-                <button
-                    onClick={() => {
-                        setEditingKlasifikasi(null);
-                        openModal && openModal();
-                    }}
-                    className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all"
-                >
-                    <Plus size={20} />
-                    <span>Tambah Kode</span>
-                </button>
-            </div>
-
-            {/* Classification List */}
-            <div className="space-y-4">
-                {Object.entries(groupedKlasifikasi)
-                    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-                    .map(([mainCode, items]) => {
-                        const mainItem = items.find(i => i.kode === mainCode);
-                        const subItems = items.filter(i => i.kode !== mainCode).sort((a, b) => a.kode.localeCompare(b.kode, undefined, { numeric: true }));
-                        const isExpanded = expandedCategories[mainCode];
-
-                        return (
-                            <div key={mainCode} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-                                {/* Main Category Header */}
-                                <div
-                                    className={cn(
-                                        "p-5 cursor-pointer transition-colors flex items-center justify-between group",
-                                        isExpanded ? "bg-neutral-50" : "bg-white hover:bg-neutral-50"
-                                    )}
-                                    onClick={() => toggleCategory(mainCode)}
-                                >
-                                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                                        <div className={cn(
-                                            "w-12 h-12 shrink-0 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform duration-300 group-hover:scale-110",
-                                            mainCode.length === 3 ? "bg-neutral-800" : "bg-primary-500"
-                                        )}>
-                                            <FolderKanban size={24} />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-display font-bold text-lg text-neutral-900">{mainCode}</span>
-
-                                            </div>
-                                            <div className="text-neutral-600 text-sm mt-0.5 [overflow-wrap:anywhere]">
-                                                {mainItem ? mainItem.deskripsi : (subItems.length > 0 ? 'Kategori Induk' : 'Tidak ada deskripsi')}
-                                            </div>
-
-                                            {/* Metadata Badges */}
-                                            {mainItem && mainCode.length > 3 && (
-                                                <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-medium">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        Aktif: {mainItem.retensiAktif} thn
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-xs font-medium">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        Inaktif: {mainItem.retensiInaktif} thn
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex shrink-0 items-center gap-3">
-                                        {mainItem && mainCode.length > 3 && (
-                                            <div className="flex shrink-0 items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleEdit(mainItem); }}
-                                                    className="p-2 text-neutral-400 hover:text-primary-600 hover:bg-white rounded-lg transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Edit size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDelete(mainItem.id, mainItem.kode); }}
-                                                    className="p-2 text-neutral-400 hover:text-danger-600 hover:bg-white rounded-lg transition-colors"
-                                                    title="Hapus"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        )}
-                                        {subItems.length > 0 && (
-                                            <div className={cn(
-                                                "w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300",
-                                                isExpanded ? "bg-neutral-200 text-neutral-700 rotate-180" : "bg-neutral-100 text-neutral-400 group-hover:bg-white group-hover:shadow-sm"
-                                            )}>
-                                                <ChevronDown size={20} />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Sub Categories */}
-                                <AnimatePresence>
-                                    {isExpanded && subItems.length > 0 && (
-                                        <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            className="border-t border-neutral-100 bg-neutral-50/50"
-                                        >
-                                            <div className="p-2 space-y-1">
-                                                {subItems.map(item => {
-                                                    const level = item.kode.split('.').length;
-                                                    const isSubCategory = level === 2;
-
-                                                    return (
-                                                        <div
-                                                            key={item.id}
-                                                            onClick={() => handleEdit(item)}
-                                                            className={cn(
-                                                                "group flex items-center justify-between p-3 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-neutral-100 transition-all cursor-pointer",
-                                                                !isSubCategory && "ml-3 sm:ml-8"
-                                                            )}
-                                                        >
-                                                            <div className="flex min-w-0 flex-1 items-center gap-3">
-                                                                <div className={cn(
-                                                                    "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-sm font-bold",
-                                                                    isSubCategory ? "bg-blue-50 text-blue-600" : "bg-indigo-50 text-indigo-600"
-                                                                )}>
-                                                                    {isSubCategory ? <FolderOpen size={16} /> : <FileText size={16} />}
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                        <span className="font-mono font-bold text-neutral-900 text-sm">{item.kode}</span>
-                                                                        <span className="text-neutral-600 text-sm line-clamp-1">{item.deskripsi}</span>
-                                                                    </div>
-                                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                                        <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
-                                                                            Aktif: {item.retensiAktif} thn
-                                                                        </span>
-                                                                        <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
-                                                                            Inaktif: {item.retensiInaktif} thn
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex shrink-0 items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                                                                <button
-                                                                    onClick={() => handleEdit(item)}
-                                                                    className="p-1.5 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                                                                >
-                                                                    <Edit size={16} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(item.id, item.kode)}
-                                                                    className="p-1.5 text-neutral-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        );
-                    })}
-            </div>
-
-            {filteredKlasifikasi.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-neutral-200 border-dashed">
-                    <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center mb-4">
-                        <Search size={24} className="text-neutral-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-neutral-900">Tidak ada kode klasifikasi</h3>
-                    <p className="text-neutral-500 max-w-sm mt-1">
-                        Coba ubah kata kunci pencarian Anda atau tambahkan kode klasifikasi baru.
-                    </p>
-                </div>
-            )}
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="page-heading">Klasifikasi arsip</h1>
+          <p className="page-description">Atur kode dan masa simpan arsip.</p>
         </div>
-    );
-};
-
-export default KlasifikasiManager;
+        <button
+          className="btn-primary shrink-0"
+          onClick={() => openEditor(null)}
+        >
+          <Plus size={17} /> Tambah kode
+        </button>
+      </header>
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <FolderTree size={20} className="text-[var(--text-muted)]" />
+          <h2 className="section-heading">Klasifikasi</h2>
+          <span className="text-sm text-[var(--text-muted)]">
+            {query.data?.length ?? "—"} kode
+          </span>
+        </div>
+        <div className="relative sm:w-80">
+          <Search
+            size={17}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+          />
+          <input
+            className="field pl-10"
+            aria-label="Cari kode atau deskripsi klasifikasi"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Cari kode atau deskripsi…"
+          />
+        </div>
+      </div>
+      {message && (
+        <p role="status" className="text-sm text-[var(--success)]">
+          {message}
+        </p>
+      )}
+      {query.isPending ? (
+        <p className="empty-state" role="status">
+          Memuat klasifikasi…
+        </p>
+      ) : query.isError ? (
+        <div className="dialog-error" role="alert">
+          <p>Klasifikasi gagal dimuat. {query.error.message}</p>
+          <button
+            className="btn-secondary mt-3"
+            onClick={() => query.refetch()}
+            disabled={query.isFetching}
+          >
+            Coba lagi
+          </button>
+        </div>
+      ) : !groups.length ? (
+        <div className="empty-state">
+          <FolderTree
+            size={28}
+            className="mx-auto mb-3 text-[var(--text-muted)]"
+          />
+          <p>
+            {search
+              ? "Tidak ada klasifikasi yang cocok."
+              : "Belum ada kode klasifikasi."}
+          </p>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            {search
+              ? "Coba kode atau deskripsi lain."
+              : "Tambahkan kode untuk mengatur retensi arsip."}
+          </p>
+          {search && (
+            <button className="btn-ghost mt-3" onClick={() => setSearch("")}>
+              Hapus pencarian
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {groups.map((group) => {
+            const isOpen =
+              Boolean(search.trim()) || Boolean(expanded[group.code]);
+            const listId = `classification-${encodeURIComponent(group.code)}`;
+            return (
+              <section
+                key={group.code}
+                className="border-b border-[var(--line)]"
+              >
+                <button
+                  className="flex w-full min-w-0 items-center gap-4 py-6 text-left"
+                  aria-expanded={isOpen}
+                  aria-controls={listId}
+                  onClick={() =>
+                    setExpanded((previous) => ({
+                      ...previous,
+                      [group.code]: !previous[group.code],
+                    }))
+                  }
+                >
+                  {isOpen ? (
+                    <ChevronDown
+                      size={18}
+                      className="shrink-0 text-[var(--text-muted)]"
+                    />
+                  ) : (
+                    <ChevronRight
+                      size={18}
+                      className="shrink-0 text-[var(--text-muted)]"
+                    />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="mb-1 block font-mono text-sm text-[var(--accent-text)]">
+                      {group.code}
+                    </span>
+                    <span className="block break-words text-lg font-normal text-[var(--text-primary)]">
+                      {group.title}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                    {group.items.length} kode
+                  </span>
+                </button>
+                <div id={listId} hidden={!isOpen}>
+                  <ul className="pb-3">
+                    {group.items.map((item) => (
+                      <li
+                        key={item.id}
+                        className={`flex min-w-0 items-start justify-between gap-2 border-t border-[var(--line)] py-4 ${item.kode.split(".").length > 2 ? "pl-4 sm:pl-12" : "pl-1 sm:pl-7"}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono text-sm text-[var(--text-primary)]">
+                            {item.kode}
+                          </p>
+                          <p className="mt-1 break-words text-sm leading-relaxed text-[var(--text-muted)]">
+                            {item.deskripsi}
+                          </p>
+                          <Retention item={item} />
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            className="icon-button"
+                            aria-label={`Edit klasifikasi ${item.kode}`}
+                            onClick={() => openEditor(item)}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            className="icon-button"
+                            aria-label={`Hapus klasifikasi ${item.kode}`}
+                            onClick={() => openDelete(item)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+      <Modal
+        isOpen={Boolean(dialog)}
+        onClose={closeDialog}
+        size={dialog?.kind === "delete" ? "sm" : "lg"}
+      >
+        <ModalHeader
+          onClose={busy || deletion.isPending ? undefined : closeDialog}
+        >
+          <ModalTitle>
+            {dialog?.kind === "delete"
+              ? "Hapus klasifikasi?"
+              : dialog?.item
+                ? "Edit klasifikasi"
+                : "Tambah klasifikasi"}
+          </ModalTitle>
+        </ModalHeader>
+        <ModalContent>
+          {dialog?.kind === "delete" ? (
+            <div className="space-y-5">
+              <p className="text-sm leading-relaxed text-[var(--text-muted)]">
+                Hapus kode{" "}
+                <span className="font-mono text-[var(--text-primary)]">
+                  {dialog.item.kode}
+                </span>{" "}
+                — {dialog.item.deskripsi}? Tindakan ini tidak dapat diurungkan.
+              </p>
+              <p className="text-sm text-[var(--text-muted)]">
+                Klasifikasi yang masih digunakan arsip mungkin tidak dapat
+                dihapus.
+              </p>
+              {deletion.error && (
+                <p className="dialog-error" role="alert">
+                  {deletion.error.code === "23503"
+                    ? "Klasifikasi masih digunakan oleh arsip. Ubah klasifikasi arsip terkait sebelum menghapus kode ini."
+                    : deletion.error.message}
+                </p>
+              )}
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  className="btn-secondary"
+                  disabled={deletion.isPending}
+                  onClick={closeDialog}
+                >
+                  Batal
+                </button>
+                <button
+                  className="btn-primary"
+                  disabled={deletion.isPending}
+                  onClick={handleDelete}
+                >
+                  {deletion.isPending ? "Menghapus…" : "Hapus klasifikasi"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            dialog && (
+              <KlasifikasiForm
+                key={dialog.item?.id || "new"}
+                klasifikasiToEdit={dialog.item}
+                onBusyChange={setBusy}
+                onCancel={closeDialog}
+                onFinish={() => {
+                  setMessage("Klasifikasi berhasil disimpan.");
+                  setDialog(null);
+                }}
+              />
+            )
+          )}
+        </ModalContent>
+      </Modal>
+    </div>
+  );
+}
