@@ -3,12 +3,12 @@ import {
   useNavigate,
   useParams,
   useSearchParams,
-} from "react-router-dom";
-import { useArsipDetail } from "../../features/arsip/hooks/useArsip";
-import { getArsipReturnPath } from "../../features/arsip/utils/listState";
-import ArsipForm from "../../features/arsip/components/ArsipForm";
-import { supabase } from "../../lib/supabaseClient";
-import RouteLoading from "../RouteLoading";
+} from 'react-router-dom';
+import { useArsipDetail } from '../../features/arsip/hooks/useArsip';
+import { getArsipReturnPath } from '../../features/arsip/utils/listState';
+import ArsipForm from '../../features/arsip/components/ArsipForm';
+import { supabase } from '../../lib/supabaseClient';
+import RouteLoading from '../RouteLoading';
 
 export default function ArchiveFormRoute() {
   const { id } = useParams();
@@ -17,7 +17,7 @@ export default function ArchiveFormRoute() {
   const navigate = useNavigate();
   const detail = useArsipDetail(id);
   const returnTo = getArsipReturnPath(
-    searchParams.get("from") || location.state?.returnTo,
+    searchParams.get('from') || location.state?.returnTo,
   );
   const onFinish = () => navigate(returnTo);
 
@@ -28,7 +28,7 @@ export default function ArchiveFormRoute() {
       <section role="alert" className="empty-state space-y-4 p-6">
         <h1 className="section-heading">Arsip gagal dimuat</h1>
         <p className="page-description">
-          {detail.error?.message || "Periksa koneksi lalu coba kembali."}
+          {detail.error?.message || 'Periksa koneksi lalu coba kembali.'}
         </p>
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" onClick={() => detail.refetch()}>
@@ -55,10 +55,15 @@ export default function ArchiveFormRoute() {
 
   return (
     <ArsipForm
-      key={id || "new"}
+      key={id || 'new'}
       supabase={supabase}
       arsipToEdit={id ? detail.data : null}
       onFinish={onFinish}
+      returnLabel={
+        returnTo === '/' || returnTo.startsWith('/?')
+          ? 'Kembali ke laporan'
+          : 'Kembali ke arsip'
+      }
     />
   );
 }

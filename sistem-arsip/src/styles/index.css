@@ -1,9 +1,10 @@
-@import "tailwindcss";
-@import "./theme.css";
-@import "./shell.css";
-@import "./dashboard.css";
-@import "./login.css";
-@import "./ux.css";
+@import 'tailwindcss';
+@import './theme.css';
+@import './shell.css';
+@import './dashboard.css';
+@import './login.css';
+@import './ux.css';
+@import './archive-form.css';
 
 @theme {
   --color-primary-50: #f4f0ff;
@@ -20,8 +21,8 @@
   --color-success-500: #65c6a5;
   --color-danger-500: #ff8a8a;
   --color-warning-500: #ffb829;
-  --font-sans: "Inter", sans-serif;
-  --font-display: "Inter", sans-serif;
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Inter', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -43,8 +44,8 @@ body {
   font-size: 14px;
   line-height: 1.55;
   font-feature-settings:
-    "ss01" on,
-    "cv11" on;
+    'ss01' on,
+    'cv11' on;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -97,14 +98,14 @@ a {
   background: #8052ff;
   color: white;
 }
-input[type="checkbox"],
-input[type="radio"] {
+input[type='checkbox'],
+input[type='radio'] {
   accent-color: var(--accent);
   width: 16px;
   height: 16px;
   flex-shrink: 0;
 }
-input[type="date"] {
+input[type='date'] {
   min-width: 0;
 }
 svg {
@@ -277,7 +278,7 @@ svg {
     white-space: nowrap;
   }
   .status-pill::before {
-    content: "";
+    content: '';
     width: 5px;
     height: 5px;
     flex-shrink: 0;
@@ -584,7 +585,7 @@ textarea.field {
 }
 
 @media (max-width: 767px) {
-  input:not([type="checkbox"]):not([type="radio"]),
+  input:not([type='checkbox']):not([type='radio']),
   select,
   textarea {
     font-size: 16px;

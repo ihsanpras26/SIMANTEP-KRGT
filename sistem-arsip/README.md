@@ -1,6 +1,7 @@
 # Aplikasi SIMANTEP
 
-Panduan arsitektur tersedia di [docs/struktur-proyek.md](../docs/struktur-proyek.md).
+Acuan terkini: [desain](../DESIGN.md), [panduan pengembangan](../docs/pengembangan.md),
+[audit form](../docs/audit-form-arsip.md), dan [struktur proyek](../docs/struktur-proyek.md).
 
 ## Konfigurasi lokal
 
@@ -83,7 +84,8 @@ Daftar arsip menyimpan pencarian, filter, sorting, dan pagination di URL. Detail
 menggunakan `/arsip/:id`; pengeditan menggunakan `/arsip/:id/edit`, sehingga keduanya
 dapat dibuka langsung dan di-refresh. Parameter `from` mempertahankan URL daftar dan
 filternya saat kembali. Setiap halaman fitur dimuat terpisah saat dibuka.
-Lihat [panduan perombakan](../docs/perombakan-saas.md) untuk perilaku dan hasil verifikasi terbaru.
+Lihat [panduan pengembangan](../docs/pengembangan.md) untuk kontrak alur saat ini;
+[panduan perombakan](../docs/perombakan-saas.md) menyimpan catatan versi sebelumnya.
 
 ## Sistem visual
 

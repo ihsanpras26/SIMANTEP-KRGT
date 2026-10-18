@@ -38,7 +38,7 @@ permanen. Dashboard memuat koleksi lengkap hanya ketika dibuka. Daftar tidak
 mengambil seluruh koleksi untuk pencarian biasa. XLSX dimuat saat impor/ekspor.
 
 Detail dan edit menggunakan `/arsip/:id` serta `/arsip/:id/edit`. Parameter `from`
-menyimpan tujuan kembali yang dibatasi pada rute daftar. Dokumen Google Drive dan
+menyimpan tujuan kembali yang dibatasi pada rute daftar atau laporan dashboard. Dokumen Google Drive dan
 file pada bucket Supabase yang sudah ada tetap dapat dibuka; iframe pratinjau
 baru dimuat setelah pengguna memintanya.
 
@@ -57,7 +57,8 @@ perombakan antarmuka ini. Otorisasi tetap ditentukan Supabase Auth dan RLS.
 - Komponen memakai PascalCase; hook diawali `use`.
 - Letakkan logika bisnis dalam fitur terkait; gunakan `ui/` untuk komponen bersama.
 - Semua sumber aplikasi harus terjangkau dari entry point, termasuk lazy import.
-- Gunakan token dari `styles/index.css`; hindari konfigurasi tema kedua.
+- Gunakan token semantik dari `styles/theme.css` dan token Tailwind di `styles/index.css`;
+  hindari konfigurasi tema kedua. Acuan visual ada di [DESIGN.md](../DESIGN.md).
 - Jalankan `npm run check:structure`, `npm run lint`, `npm test`, dan `npm run build`.
 - Untuk perubahan alur pengguna, jalankan `npm run test:e2e` setelah memasang Chromium
   dengan `npx playwright install chromium`. Pengujian menggunakan data contoh lokal

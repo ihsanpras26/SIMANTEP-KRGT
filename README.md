@@ -17,6 +17,16 @@ npm run dev
 
 Lihat [panduan aplikasi](sistem-arsip/README.md) untuk konfigurasi, perintah, dan deployment.
 
+## Acuan desain dan pengembangan
+
+- [DESIGN.md](DESIGN.md): sistem visual, UX, copywriting, dan interaksi terkini.
+- [Panduan pengembangan](docs/pengembangan.md): peta modul, kontrak data/form, pengujian, dan deployment.
+- [Audit form tambah/edit arsip](docs/audit-form-arsip.md): temuan, perbaikan, dan hasil verifikasi.
+- [Indeks dokumentasi](docs/README.md): acuan aktif serta riwayat pengembangan.
+
+Dokumen desain asli unggahan pengguna disimpan tanpa perubahan di
+[docs/referensi/DESIGN-original.md](docs/referensi/DESIGN-original.md).
+
 ## Penataan repositori
 
 ```text
@@ -39,7 +49,7 @@ Lihat [panduan aplikasi](sistem-arsip/README.md) untuk konfigurasi, perintah, da
      main.jsx          Entry point dan providers
 ```
 
-- [Perombakan dashboard SaaS](docs/perombakan-saas.md)
+- [Perombakan dashboard SaaS — catatan sebelumnya](docs/perombakan-saas.md)
 - [Aturan struktur dan alur data](docs/struktur-proyek.md)
 - [Hasil audit struktur](docs/audit-struktur.md)
 - [Perbaikan UI/UX tahap 1 dan panduan verifikasi](docs/ui-ux-tahap-1.md)
