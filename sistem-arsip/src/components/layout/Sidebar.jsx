@@ -7,7 +7,6 @@ import {
   FolderKanban,
   PanelLeftClose,
   PanelLeftOpen,
-  ArrowUpRight,
   Tag,
   X,
 } from "lucide-react";
@@ -131,7 +130,7 @@ export function Sidebar({
             <Plus size={18} />
             {!collapsed && <span>Tambah arsip</span>}
           </Link>
-          {!collapsed && <p className="sidebar-label">WORKSPACE</p>}
+          {!collapsed && <p className="sidebar-label">RUANG KERJA</p>}
           <nav aria-label="Menu utama">
             {navItems.map((item) => {
               const active =
@@ -161,17 +160,6 @@ export function Sidebar({
           </nav>
         </div>
         <div className="sidebar-bottom">
-          {!collapsed && (
-            <div className="sidebar-organization">
-              <span className="organization-symbol" aria-hidden="true">
-                <ArrowUpRight size={21} />
-              </span>
-              <div>
-                <p>Kebun Raya</p>
-                <span>Gunung Tidar, Magelang</span>
-              </div>
-            </div>
-          )}
           <button
             type="button"
             onClick={onToggle}
