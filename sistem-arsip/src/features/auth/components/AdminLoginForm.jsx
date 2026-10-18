@@ -1,63 +1,125 @@
-import React, { useState } from 'react';
-import { Button } from '../../../components/ui/Button';
-import { LogIn } from 'lucide-react';
+import { useRef, useState } from "react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 
-const AdminLoginForm = ({ onSubmit }) => {
-	const [email, setEmail] = useState('');
-	const [password, setPassword] = useState('');
-	const [loading, setLoading] = useState(false);
+function loginMessage(error) {
+  if (!error) return "";
+  const message = error.message || "";
+  if (
+    error.code === "invalid_credentials" ||
+    /invalid login credentials/i.test(message)
+  )
+    return "Email atau kata sandi tidak cocok. Coba lagi.";
+  if (error.status === 429 || /rate limit|too many requests/i.test(message))
+    return "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.";
+  if (/fetch|network|connection/i.test(message))
+    return "Tidak dapat terhubung. Periksa koneksi internet Anda.";
+  return message || "Belum berhasil masuk. Coba lagi.";
+}
 
-	const handleSubmit = async (e) => {
-		e.preventDefault();
-		setLoading(true);
-		try {
-			await onSubmit?.(email, password);
-		} finally {
-			setLoading(false);
-		}
-	};
+export default function AdminLoginForm({ onSubmit, sessionError }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const submitting = useRef(false);
 
-	return (
-		<form onSubmit={handleSubmit} className="space-y-5">
-			<div>
-				<label htmlFor="login-email" className="block text-sm font-medium text-neutral-700 mb-2">Email</label>
-				<input
-					id="login-email"
-					autoComplete="email"
-					type="email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					placeholder="admin@simantep.local"
-					required
-					className="w-full px-4 py-3 border border-neutral-300 rounded-xl text-base sm:text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all duration-200 outline-none"
-				/>
-			</div>
-			<div>
-				<label htmlFor="login-password" className="block text-sm font-medium text-neutral-700 mb-2">Kata sandi</label>
-				<input
-					id="login-password"
-					autoComplete="current-password"
-					type="password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					placeholder="Kata sandi"
-					required
-					className="w-full px-4 py-3 border border-neutral-300 rounded-xl text-base sm:text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all duration-200 outline-none"
-				/>
-			</div>
-			<Button
-				type="submit"
-				size="lg"
-				loading={loading}
-				className="w-full"
-			>
-				<LogIn size={18} />
-				{loading ? 'Masuk...' : 'Masuk'}
-			</Button>
-			<p className="text-xs text-neutral-500 text-center">Hanya akun admin yang diizinkan</p>
-		</form>
-	);
-};
+  const submit = async (event) => {
+    event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      await onSubmit(email, password);
+    } catch (failure) {
+      setError(loginMessage(failure));
+    } finally {
+      submitting.current = false;
+      setLoading(false);
+    }
+  };
+  const message = error || loginMessage(sessionError);
 
-export default AdminLoginForm;
-
+  return (
+    <form onSubmit={submit} className="login-form" aria-busy={loading}>
+      <div>
+        <label htmlFor="login-email" className="field-label">
+          Email
+        </label>
+        <input
+          id="login-email"
+          name="email"
+          autoComplete="username"
+          type="email"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setError(null);
+          }}
+          placeholder="nama@instansi.go.id"
+          required
+          disabled={loading}
+          className="field w-full"
+          aria-describedby={message ? "login-error" : undefined}
+        />
+      </div>
+      <div>
+        <label htmlFor="login-password" className="field-label">
+          Kata sandi
+        </label>
+        <div className="relative">
+          <input
+            id="login-password"
+            name="password"
+            autoComplete="current-password"
+            type={visible ? "text" : "password"}
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              setError(null);
+            }}
+            placeholder="Masukkan kata sandi"
+            required
+            disabled={loading}
+            className="field w-full pr-14"
+            aria-describedby={message ? "login-error" : undefined}
+          />
+          <button
+            type="button"
+            className="icon-button absolute right-1 top-1/2 -translate-y-1/2"
+            onClick={() => setVisible(!visible)}
+            aria-label={
+              visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"
+            }
+            aria-pressed={visible}
+          >
+            {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+      </div>
+      {message && (
+        <p role="alert" id="login-error" className="dialog-error">
+          {message}
+        </p>
+      )}
+      <button
+        type="submit"
+        className="btn-primary w-full justify-center"
+        disabled={loading}
+      >
+        {loading ? (
+          <>
+            <LoaderCircle size={18} className="animate-spin" />
+            Masuk…
+          </>
+        ) : (
+          <>
+            Masuk
+            <ArrowRight size={18} />
+          </>
+        )}
+      </button>
+    </form>
+  );
+}

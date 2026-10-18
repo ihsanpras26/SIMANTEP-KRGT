@@ -1,686 +1,480 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Save,
-  X,
-  Loader2,
-  Link as LinkIcon,
+  ArrowLeft,
+  ArrowRight,
   FileText,
-  Hash,
-  Calendar,
+  Link2,
+  Loader2,
+  Save,
   Tag,
-  Plus,
-  Check,
-  ChevronDown,
-  Sparkles,
-  Users,
-  Mail
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { toast } from 'react-hot-toast';
-import AutocompleteInput from '../../../components/shared/AutocompleteInput';
-import SearchableSelect from '../../../components/shared/SearchableSelect';
-import { cn } from '../../../lib/cn';
-import LabelBadge from '../../labels/components/LabelBadge';
-
+import toast from 'react-hot-toast';
 import { useArsip } from '../hooks/useArsip';
 import { useKlasifikasi } from '../../klasifikasi/hooks/useKlasifikasi';
 import { useLabels } from '../../labels/hooks/useLabels';
+import LabelBadge from '../../labels/components/LabelBadge';
+import {
+  localDate,
+  normalizeArchive,
+  parseArchiveDate,
+} from '../utils/archiveFields';
+import { saveArchive } from '../services/archiveMutations';
+import {
+  Modal,
+  ModalHeader,
+  ModalTitle,
+  ModalContent,
+  ModalFooter,
+} from '../../../components/ui';
 
-export default function ArsipForm({
-  supabase,
-  arsipToEdit,
-  onFinish
-}) {
+import { NavigationGuardContext } from '../../../lib/navigationGuard';
+
+const initialValues = (archive) => ({
+  nomorSurat: archive?.nomorSurat || '',
+  perihal: archive?.perihal || '',
+  tanggalSurat: parseArchiveDate(archive?.tanggalSurat) || localDate(),
+  kodeKlasifikasi: archive?.kodeKlasifikasi || '',
+  pengirim: archive?.pengirim || '',
+  tujuanSurat: archive?.tujuanSurat || '',
+  googleDriveLink: archive?.googleDriveLink || '',
+});
+
+export default function ArsipForm({ supabase, arsipToEdit, onFinish }) {
   const queryClient = useQueryClient();
-  // Fetch ALL data for autocomplete suggestions
-  const { data: arsipData } = useArsip({ page: 'all', pageSize: 10000 });
-  const { data: klasifikasiData } = useKlasifikasi();
-  const { data: labelsData } = useLabels();
-
-  const arsipList = arsipData?.data || [];
-  const klasifikasiList = klasifikasiData || [];
-  const labels = labelsData || [];
-
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    nomorSurat: '',
-    perihal: '',
-    tanggalSurat: new Date().toISOString().split('T')[0],
-    kodeKlasifikasi: '',
-    pengirim: '',
-    googleDriveLink: ''
-  });
-  const [tujuanList, setTujuanList] = useState([]);
-  const [tujuanInput, setTujuanInput] = useState('');
-  const [selectedLabelIds, setSelectedLabelIds] = useState([]);
-  const [showLabelDropdown, setShowLabelDropdown] = useState(false);
-  const [labelSearch, setLabelSearch] = useState('');
-  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
-  const [autoDetected, setAutoDetected] = useState(false);
-  const [detectedInfo, setDetectedInfo] = useState(null);
-
+  const classifications = useKlasifikasi();
+  const labels = useLabels();
+  const [values, setValues] = useState(() => initialValues(arsipToEdit));
+  const [labelIds, setLabelIds] = useState(() =>
+    (arsipToEdit?.arsip_labels || []).map((link) =>
+      String(link.label_id ?? link.labels?.id),
+    ),
+  );
+  const [savedRecord, setSavedRecord] = useState(arsipToEdit || null);
   const [errors, setErrors] = useState({});
-  const labelDropdownRef = useRef(null);
-
-  // Auto-detection helper functions
-  const parseNomorSurat = (nomorSurat) => {
-    if (!nomorSurat || !nomorSurat.trim()) return null;
-
-    // Split by / and get parts
-    const parts = nomorSurat.split('/').map(p => p.trim());
-
-    if (parts.length === 0) return null;
-
-    // Extract kode klasifikasi (first part)
-    const kodeKlasifikasi = parts[0].toUpperCase();
-
-    return {
-      kodeKlasifikasi,
-      nomorAgenda: parts[1] || null,
-      nomorInstansi: parts[2] || null
-    };
-  };
-
-  const findMatchingKlasifikasi = (kode) => {
-    if (!kode || klasifikasiList.length === 0) return null;
-
-    // 1. Exact match (case-insensitive)
-    const exactMatch = klasifikasiList.find(
-      k => k.kode.toUpperCase() === kode
-    );
-    if (exactMatch) return exactMatch;
-
-    // 2. Prefix match
-    const prefixMatch = klasifikasiList.find(
-      k => k.kode.toUpperCase().startsWith(kode)
-    );
-    if (prefixMatch) return prefixMatch;
-
-    // 3. Contains match
-    const containsMatch = klasifikasiList.find(
-      k => k.kode.toUpperCase().includes(kode)
-    );
-
-    return containsMatch || null;
-  };
-
-  const handleNomorSuratChange = (value) => {
-    setFormData(prev => ({ ...prev, nomorSurat: value }));
-
-    // Parse nomor surat
-    const parsed = parseNomorSurat(value);
-
-    if (parsed && parsed.kodeKlasifikasi) {
-      // Find matching klasifikasi
-      const match = findMatchingKlasifikasi(parsed.kodeKlasifikasi);
-
-      if (match) {
-        // Auto-fill kode klasifikasi (silent - no toast)
-        setFormData(prev => ({
-          ...prev,
-          kodeKlasifikasi: match.kode
-        }));
-
-        setAutoDetected(true);
-        setDetectedInfo({
-          kode: match.kode,
-          deskripsi: match.deskripsi
-        });
-      } else {
-        setAutoDetected(false);
-        setDetectedInfo(null);
-      }
-    } else {
-      setAutoDetected(false);
-      setDetectedInfo(null);
-    }
-  };
-
-  // Initialize form if editing
+  const [failure, setFailure] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const allowNavigation = useRef(false);
+  const logoutGuard = useContext(NavigationGuardContext);
+  const [pendingLogout, setPendingLogout] = useState(null);
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !allowNavigation.current &&
+      (dirty || saving) &&
+      (currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search),
+  );
+  const pendingExit = useRef(null);
+  pendingExit.current = { blocker, pendingLogout };
   useEffect(() => {
-    if (arsipToEdit) {
-      setFormData({
-        nomorSurat: arsipToEdit.nomorSurat || '',
-        perihal: arsipToEdit.perihal || '',
-        tanggalSurat: arsipToEdit.tanggalSurat ? arsipToEdit.tanggalSurat.split('T')[0] : new Date().toISOString().split('T')[0],
-        kodeKlasifikasi: arsipToEdit.kodeKlasifikasi || '',
-        pengirim: arsipToEdit.pengirim || '',
-        googleDriveLink: arsipToEdit.googleDriveLink || ''
-      });
-
-      if (arsipToEdit.tujuanSurat) {
-        setTujuanList(arsipToEdit.tujuanSurat.split('; ').filter(Boolean));
-      }
-
-      // Initialize labels
-      if (arsipToEdit.arsip_labels) {
-        const ids = arsipToEdit.arsip_labels.map(al => al.labels?.id).filter(Boolean);
-        setSelectedLabelIds(ids);
-      }
-
-      // Show additional details if any optional field has data
-      if (arsipToEdit.pengirim || arsipToEdit.tujuanSurat || arsipToEdit.googleDriveLink) {
-        setShowAdditionalDetails(true);
-      }
-    }
-  }, [arsipToEdit]);
-
-  // Click outside to close label dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (labelDropdownRef.current && !labelDropdownRef.current.contains(event.target)) {
-        setShowLabelDropdown(false);
-      }
+    if (!logoutGuard || (!dirty && !saving)) return;
+    const guard = (proceed) => setPendingLogout({ proceed });
+    logoutGuard.current = guard;
+    return () => {
+      if (logoutGuard.current === guard) logoutGuard.current = null;
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Handle Submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Auto-add pending tujuan input if list is empty
-    let finalTujuanList = [...tujuanList];
-    if (finalTujuanList.length === 0 && tujuanInput.trim()) {
-      finalTujuanList.push(tujuanInput.trim());
-    }
-
-    // Validation
-    const newErrors = {};
-    if (!formData.perihal) newErrors.perihal = 'Perihal wajib diisi';
-    if (!formData.kodeKlasifikasi) newErrors.kodeKlasifikasi = 'Kode klasifikasi wajib dipilih';
-    if (!formData.tanggalSurat) newErrors.tanggalSurat = 'Tanggal surat wajib diisi';
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      toast.error('Mohon lengkapi data yang wajib diisi');
+  }, [logoutGuard, dirty, saving]);
+  const stay = () => {
+    if (saving) return;
+    if (blocker.state === 'blocked') blocker.reset();
+    setPendingLogout(null);
+  };
+  const discard = () => {
+    if (saving) return;
+    if (pendingLogout) {
+      const { proceed } = pendingLogout;
+      setPendingLogout(null);
+      proceed();
+    } else if (blocker.state === 'blocked') blocker.proceed();
+  };
+  const [senderQuery, setSenderQuery] = useState('');
+  const submitting = useRef(false);
+  const formRef = useRef(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setSenderQuery(values.pengirim.trim()), 200);
+    return () => clearTimeout(timer);
+  }, [values.pengirim]);
+  const suggestions = useArsip(
+    { searchTerm: senderQuery, pageSize: 10 },
+    { enabled: senderQuery.length > 1 },
+  );
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+  const update = (name, value) => {
+    setDirty(true);
+    setErrors((previous) => ({ ...previous, [name]: undefined }));
+    setValues((previous) => {
+      const next = { ...previous, [name]: value };
+      if (name === 'nomorSurat' && !previous.kodeKlasifikasi) {
+        const code = value.split('/')[0].trim().toLowerCase();
+        const match = (classifications.data || []).find(
+          (item) => item.kode.toLowerCase() === code,
+        );
+        if (match) next.kodeKlasifikasi = match.kode;
+      }
+      return next;
+    });
+  };
+  const toggleLabel = (id) => {
+    setDirty(true);
+    setLabelIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((item) => item !== id)
+        : [...previous, id],
+    );
+  };
+  const submit = async (event) => {
+    event.preventDefault();
+    if (submitting.current) return;
+    const result = normalizeArchive(
+      values,
+      classifications.data || [],
+      savedRecord,
+    );
+    setErrors(result.errors);
+    if (Object.keys(result.errors).length) {
+      formRef.current?.elements
+        .namedItem(Object.keys(result.errors)[0])
+        ?.focus();
       return;
     }
-
-    // Check for duplicate nomorSurat if provided
-    if (formData.nomorSurat) {
-      let query = supabase
-        .from('arsip')
-        .select('id')
-        .eq('nomorSurat', formData.nomorSurat);
-
-      if (arsipToEdit) {
-        query = query.neq('id', arsipToEdit.id);
-      }
-
-      const { data: duplicate } = await query.maybeSingle();
-
-      if (duplicate) {
-        toast.error(`Nomor Surat "${formData.nomorSurat}" sudah terdaftar!`);
+    submitting.current = true;
+    setSaving(true);
+    setFailure('');
+    try {
+      const { record, labelError } = await saveArchive(supabase, {
+        id: savedRecord?.id,
+        payload: result.payload,
+        labelIds,
+      });
+      setSavedRecord(record);
+      await queryClient.invalidateQueries({ queryKey: ['arsip'] });
+      await queryClient.invalidateQueries({ queryKey: ['labels'] });
+      if (labelError) {
+        setFailure(
+          `Data arsip sudah tersimpan, tetapi label belum lengkap: ${labelError} Klik Simpan untuk mencoba kembali tanpa membuat arsip baru.`,
+        );
         return;
       }
-    }
-
-    setLoading(true);
-    try {
-      // Calculate retention date
-      const suratDate = new Date(formData.tanggalSurat);
-      const retensiDate = new Date(suratDate);
-      retensiDate.setFullYear(retensiDate.getFullYear() + 5);
-
-      const payload = {
-        ...formData,
-        tujuanSurat: finalTujuanList.join('; '),
-        tanggalRetensi: retensiDate.toISOString()
-      };
-
-      // Remove invalid columns if they exist in formData (defensive)
-      delete payload.keterangan;
-
-      let arsipId;
-
-      if (arsipToEdit) {
-        arsipId = arsipToEdit.id;
-        const { error } = await supabase
-          .from('arsip')
-          .update(payload)
-          .eq('id', arsipId);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from('arsip')
-          .insert([{ ...payload, created_at: new Date().toISOString() }])
-          .select()
-          .single();
-        if (error) throw error;
-        arsipId = data.id;
-      }
-
-      // Handle Labels
-      if (arsipId) {
-        if (arsipToEdit) {
-          await supabase.from('arsip_labels').delete().eq('arsip_id', arsipId);
-        }
-
-        if (selectedLabelIds.length > 0) {
-          const labelInserts = selectedLabelIds.map(labelId => ({
-            arsip_id: arsipId,
-            label_id: labelId
-          }));
-          const { error: labelError } = await supabase.from('arsip_labels').insert(labelInserts);
-          if (labelError) throw labelError;
-        }
-      }
-
-      toast.success(arsipToEdit ? 'Arsip berhasil diperbarui' : 'Arsip baru berhasil ditambahkan');
-
-      // Explicitly invalidate queries to force refresh
-      await queryClient.invalidateQueries({ queryKey: ['arsip'] });
-
-      onFinish();
+      allowNavigation.current = true;
+      setDirty(false);
+      toast.success(
+        arsipToEdit
+          ? 'Perubahan arsip disimpan.'
+          : 'Arsip berhasil ditambahkan.',
+      );
+      const exit = pendingExit.current;
+      if (exit.pendingLogout) {
+        setPendingLogout(null);
+        await exit.pendingLogout.proceed();
+      } else if (exit.blocker.state === 'blocked') exit.blocker.proceed();
+      else onFinish();
     } catch (error) {
-      console.error('Error saving arsip:', error);
-      toast.error(`Gagal menyimpan arsip: ${error.message}`);
+      setFailure(error.message || 'Arsip belum tersimpan. Coba kembali.');
     } finally {
-      setLoading(false);
+      submitting.current = false;
+      setSaving(false);
     }
   };
-
-  // Handlers for Tujuan Chips
-  const handleAddTujuan = (val) => {
-    const trimmed = val.trim();
-    if (trimmed && !tujuanList.includes(trimmed)) {
-      setTujuanList([...tujuanList, trimmed]);
-      setTujuanInput('');
-    }
+  const cancel = () => {
+    if (!saving) onFinish();
   };
-
-  const handleRemoveTujuan = (index) => {
-    setTujuanList(tujuanList.filter((_, i) => i !== index));
-  };
-
-  const handleTujuanKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      handleAddTujuan(tujuanInput);
-    } else if (e.key === 'Backspace' && !tujuanInput && tujuanList.length > 0) {
-      handleRemoveTujuan(tujuanList.length - 1);
-    }
-  };
-
-  // Label Handlers
-  const toggleLabel = (id) => {
-    if (selectedLabelIds.includes(id)) {
-      setSelectedLabelIds(prev => prev.filter(lId => lId !== id));
-    } else {
-      setSelectedLabelIds(prev => [...prev, id]);
-      setShowLabelDropdown(false);
-      setLabelSearch('');
-    }
-  };
-
-  const filteredLabels = labels.filter(l =>
-    l.name.toLowerCase().includes(labelSearch.toLowerCase()) &&
-    !selectedLabelIds.includes(l.id)
+  const fieldProps = (name) => ({
+    id: name,
+    name,
+    value: values[name],
+    onChange: (event) => update(name, event.target.value),
+    className: 'field',
+    'aria-invalid': !!errors[name],
+    'aria-describedby': errors[name] ? `${name}-error` : undefined,
+  });
+  const errorText = (name) =>
+    errors[name] && (
+      <p id={`${name}-error`} className="mt-2 text-sm text-[var(--danger)]">
+        {errors[name]}
+      </p>
+    );
+  const selectedCode = (classifications.data || []).find(
+    (item) => item.kode === values.kodeKlasifikasi,
   );
-
-  // Autocomplete Data Sources
-  const nomorSuratSuggestions = [...new Set(arsipList.map(a => a.nomorSurat))];
-  const perihalSuggestions = [...new Set(arsipList.map(a => a.perihal))];
-  const pengirimSuggestions = [...new Set(arsipList.map(a => a.pengirim).filter(Boolean))];
-  const allTujuan = arsipList.flatMap(a => {
-    const val = a.tujuanSurat || a.tujuan;
-    return val ? val.split('; ') : [];
-  }).filter(Boolean);
-  const tujuanSuggestions = [...new Set(allTujuan)];
-
-  const handleFormKeyDown = (e) => {
-    // Prevent implicit submission on Enter key
-    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-      e.preventDefault();
-    }
-  };
-
+  const dataError = classifications.error || labels.error;
   return (
-    <div className="max-w-5xl mx-auto">
-      <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
-
-        {/* Section 1: Primary Information */}
-        <div className="bg-white rounded-2xl border border-neutral-200 p-5 sm:p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-primary-50 rounded-lg">
-              <FileText size={24} className="text-primary-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-neutral-900">Informasi Utama</h3>
-              <p className="text-xs text-neutral-500">Data pokok arsip yang wajib diisi</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Nomor Surat - Full width with auto-detect */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-neutral-700 mb-2">
-                Nomor Surat
-              </label>
-              <div className="relative">
-                <Hash size={16} className="absolute left-3 top-3 text-neutral-400 z-10" />
-                <AutocompleteInput
-                  suggestions={nomorSuratSuggestions}
-                  value={formData.nomorSurat}
-                  onChange={handleNomorSuratChange}
-                  placeholder="800.1.11.1/1221/310"
-                  className={cn(
-                    "pl-9 w-full",
-                    errors.nomorSurat && "border-danger-500 focus:ring-danger-200"
-                  )}
-                />
-              </div>
-              {detectedInfo && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200"
-                >
-                  <Sparkles size={14} />
-                  <span className="font-medium">
-                    Kode klasifikasi terdeteksi: {detectedInfo.kode} - {detectedInfo.deskripsi}
-                  </span>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Tanggal Surat */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-700 mb-2">
-                Tanggal Surat <span className="text-danger-500">*</span>
-              </label>
-              <div className="relative">
-                <Calendar size={16} className="absolute left-3 top-3 text-neutral-400" />
-                <input
-                  type="date"
-                  value={formData.tanggalSurat}
-                  onChange={(e) => setFormData({ ...formData, tanggalSurat: e.target.value })}
-                  className={cn(
-                    "pl-9 w-full px-4 py-2.5 h-[42px] bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none",
-                    errors.tanggalSurat && "border-danger-500 focus:ring-danger-200"
-                  )}
-                />
-              </div>
-              {errors.tanggalSurat && <p className="text-xs text-danger-500 mt-1">{errors.tanggalSurat}</p>}
-            </div>
-
-            {/* Kode Klasifikasi */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-700 mb-2">
-                Kode Klasifikasi <span className="text-danger-500">*</span>
-              </label>
-              <SearchableSelect
-                placeholder="Cari kode atau deskripsi..."
-                options={klasifikasiList.map(k => ({
-                  value: k.kode,
-                  label: `${k.kode} - ${k.deskripsi}`
-                }))}
-                value={formData.kodeKlasifikasi}
-                onChange={(val) => {
-                  setFormData({ ...formData, kodeKlasifikasi: val });
-                  setAutoDetected(false);
-                }}
-                className={errors.kodeKlasifikasi ? "border-danger-500" : ""}
-              />
-              {autoDetected && (
-                <p className="text-xs text-neutral-500 mt-1.5 flex items-center gap-1">
-                  <Sparkles size={12} />
-                  Terdeteksi otomatis dari nomor surat
-                </p>
-              )}
-              {errors.kodeKlasifikasi && <p className="text-xs text-danger-500 mt-1">{errors.kodeKlasifikasi}</p>}
-            </div>
-
-            {/* Perihal - Full width */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-neutral-700 mb-2">
-                Perihal <span className="text-danger-500">*</span>
-              </label>
-              <AutocompleteInput
-                suggestions={perihalSuggestions}
-                value={formData.perihal}
-                onChange={(val) => setFormData({ ...formData, perihal: val })}
-                placeholder="Contoh: Undangan Rapat Koordinasi"
-                className={cn(
-                  "w-full",
-                  errors.perihal && "border-danger-500 focus:ring-danger-200"
-                )}
-              />
-              {errors.perihal && <p className="text-xs text-danger-500 mt-1">{errors.perihal}</p>}
-            </div>
-          </div>
-        </div>
-
-        {/* Section 2: Label & Kategori */}
-        <div className="bg-white rounded-2xl border border-neutral-200 p-5 sm:p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-50 rounded-lg">
-              <Tag size={24} className="text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-neutral-900">Label & Kategori</h3>
-              <p className="text-xs text-neutral-500">Tambahkan label untuk memudahkan pencarian (opsional)</p>
-            </div>
-          </div>
-
-          <div className="relative" ref={labelDropdownRef}>
-            <div className="flex flex-wrap gap-2 items-center min-h-[38px]">
-              {selectedLabelIds.map(id => {
-                const label = labels.find(l => l.id === id);
-                if (!label) return null;
-                return (
-                  <LabelBadge
-                    key={id}
-                    label={label}
-                    showDelete={true}
-                    onDelete={() => toggleLabel(id)}
-                  />
-                );
-              })}
-
-              <div className="relative w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setShowLabelDropdown(!showLabelDropdown)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 border border-neutral-200 border-dashed transition-colors"
-                >
-                  <Plus size={14} />
-                  Tambah Label
-                </button>
-
-                <AnimatePresence>
-                  {showLabelDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 5 }}
-                      className="absolute top-full left-0 mt-2 w-full sm:w-64 bg-white border border-neutral-100 rounded-xl shadow-lg z-50 overflow-hidden"
-                    >
-                      <div className="p-2 border-b border-neutral-50">
-                        <input
-                          type="text"
-                          value={labelSearch}
-                          onChange={(e) => setLabelSearch(e.target.value)}
-                          placeholder="Cari label..."
-                          className="w-full px-2 py-1 text-sm bg-neutral-50 rounded-md outline-none"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
-                        {filteredLabels.length === 0 ? (
-                          <div className="px-3 py-2 text-xs text-neutral-400 text-center">
-                            {labelSearch ? 'Tidak ada label ditemukan' : 'Semua label sudah dipilih'}
-                          </div>
-                        ) : (
-                          filteredLabels.map(label => (
-                            <button
-                              key={label.id}
-                              type="button"
-                              onClick={() => toggleLabel(label.id)}
-                              className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-2 group transition-colors"
-                            >
-                              <LabelBadge label={label} size="sm" />
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Additional Details (Collapsible) */}
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+    <div className="archive-form-page">
+      <button
+        type="button"
+        className="btn-ghost mb-6"
+        onClick={cancel}
+        disabled={saving}
+      >
+        <ArrowLeft size={16} /> Kembali ke arsip
+      </button>
+      <div className="mb-10">
+        <h1 className="page-heading">
+          {arsipToEdit ? 'Edit arsip' : 'Tambah arsip'}
+        </h1>
+        <p className="page-description">
+          Isi informasi surat. Kolom bertanda * wajib diisi.
+        </p>
+      </div>
+      {dataError && (
+        <div className="dialog-error mb-6" role="alert">
+          Data pendukung gagal dimuat.{' '}
           <button
-            type="button"
-            onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
-            className="w-full flex items-center justify-between p-6 hover:bg-neutral-50 transition-colors"
+            className="btn-ghost"
+            onClick={() => {
+              classifications.refetch();
+              labels.refetch();
+            }}
           >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <Mail size={20} className="text-blue-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-base font-bold text-neutral-900">Detail Tambahan</h3>
-                <p className="text-xs text-neutral-500">Informasi opsional (pengirim, tujuan, dll)</p>
-              </div>
-            </div>
-            <ChevronDown
-              size={20}
-              className={cn(
-                "text-neutral-400 transition-transform",
-                showAdditionalDetails && "rotate-180"
-              )}
-            />
+            Coba lagi
           </button>
-
-          <AnimatePresence>
-            {showAdditionalDetails && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="p-6 pt-0 space-y-6 border-t border-neutral-100">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {/* Pengirim */}
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        Pengirim
-                      </label>
-                      <AutocompleteInput
-                        suggestions={pengirimSuggestions}
-                        value={formData.pengirim}
-                        onChange={(val) => setFormData({ ...formData, pengirim: val })}
-                        placeholder="Contoh: Dinas Lingkungan Hidup"
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Tujuan Surat */}
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        Tujuan Surat
-                      </label>
-                      <div className="w-full bg-neutral-50 border border-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-500 transition-all px-3 py-2 flex flex-wrap gap-2 min-h-[42px]">
-                        <AnimatePresence>
-                          {tujuanList.map((tujuan, index) => (
-                            <motion.span
-                              key={index}
-                              initial={{ scale: 0.8, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0.8, opacity: 0 }}
-                              className="bg-white border border-neutral-200 text-neutral-700 px-2 py-1 rounded-lg text-sm flex items-center gap-1 shadow-sm"
-                            >
-                              {tujuan}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTujuan(index)}
-                                className="text-neutral-400 hover:text-danger-500 transition-colors"
-                              >
-                                <X size={14} />
-                              </button>
-                            </motion.span>
-                          ))}
-                        </AnimatePresence>
-                        <div className="flex-1 min-w-[150px]">
-                          <AutocompleteInput
-                            suggestions={tujuanSuggestions}
-                            value={tujuanInput}
-                            onChange={setTujuanInput}
-                            onSelect={handleAddTujuan}
-                            onKeyDown={handleTujuanKeyDown}
-                            placeholder={tujuanList.length === 0 ? "Contoh: Kepala Dinas Perhubungan" : ""}
-                            className="!border-none !ring-0 !outline-none !shadow-none !p-0 !bg-transparent w-full h-full"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Google Drive Link - Full width */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Link Google Drive
+        </div>
+      )}
+      <form ref={formRef} onSubmit={submit} noValidate>
+        <fieldset
+          disabled={
+            saving ||
+            classifications.isPending ||
+            labels.isPending ||
+            !!dataError
+          }
+          className="min-w-0 border-0 p-0"
+        >
+          <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="min-w-0 space-y-10">
+              <section className="surface">
+                <div className="mb-6 flex items-center gap-3">
+                  <FileText size={19} className="text-[var(--accent-text)]" />
+                  <h2 className="section-heading">Identitas surat</h2>
+                  <span className="ml-auto text-xs text-[var(--text-muted)]">
+                    * Wajib diisi
+                  </span>
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label" htmlFor="nomorSurat">
+                      Nomor surat
                     </label>
-                    <div className="relative">
-                      <LinkIcon size={16} className="absolute left-3 top-3 text-neutral-400" />
-                      <input
-                        type="url"
-                        value={formData.googleDriveLink}
-                        onChange={(e) => setFormData({ ...formData, googleDriveLink: e.target.value })}
-                        placeholder="https://drive.google.com/..."
-                        className="w-full pl-9 px-4 py-2.5 h-[42px] bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none"
-                      />
-                    </div>
-                    <p className="text-xs text-neutral-500 mt-1.5">
-                      Pastikan link dapat diakses (Public atau Shared)
+                    <input
+                      {...fieldProps('nomorSurat')}
+                      placeholder="005/001/KRGT/2026"
+                      autoComplete="off"
+                    />
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      Kode klasifikasi dikenali dari awal nomor surat.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="tanggalSurat">
+                      Tanggal surat *
+                    </label>
+                    <input
+                      {...fieldProps('tanggalSurat')}
+                      type="date"
+                      required
+                    />
+                    {errorText('tanggalSurat')}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="field-label" htmlFor="perihal">
+                      Perihal *
+                    </label>
+                    <textarea
+                      {...fieldProps('perihal')}
+                      rows={3}
+                      required
+                      placeholder="Contoh: Undangan rapat koordinasi"
+                    />
+                    {errorText('perihal')}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="field-label" htmlFor="kodeKlasifikasi">
+                      Kode klasifikasi *
+                    </label>
+                    <input
+                      {...fieldProps('kodeKlasifikasi')}
+                      list="archive-classifications"
+                      required
+                      autoComplete="off"
+                      placeholder="Ketik atau pilih kode klasifikasi"
+                    />
+                    <datalist id="archive-classifications">
+                      {(classifications.data || []).map((item) => (
+                        <option key={item.id} value={item.kode}>
+                          {item.deskripsi}
+                        </option>
+                      ))}
+                    </datalist>
+                    {errorText('kodeKlasifikasi')}
+                    {selectedCode && (
+                      <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                        {selectedCode.deskripsi}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+              <section className="surface">
+                <h2 className="section-heading mb-6">Pengirim & tujuan</h2>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label" htmlFor="pengirim">
+                      Pengirim
+                    </label>
+                    <input
+                      {...fieldProps('pengirim')}
+                      list="sender-suggestions"
+                      placeholder="Nama atau instansi pengirim"
+                    />
+                    <datalist id="sender-suggestions">
+                      {[
+                        ...new Set(
+                          (suggestions.data?.data || [])
+                            .map((item) => item.pengirim)
+                            .filter(Boolean),
+                        ),
+                      ].map((value) => (
+                        <option key={value} value={value} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="tujuanSurat">
+                      Tujuan surat
+                    </label>
+                    <input
+                      {...fieldProps('tujuanSurat')}
+                      placeholder="Kepala UPT; Sekretariat"
+                    />
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      Pisahkan beberapa tujuan dengan titik koma.
                     </p>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Action Buttons - Sticky */}
-        <div className="sticky bottom-0 z-20 flex flex-wrap gap-3 rounded-2xl border border-neutral-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft backdrop-blur-sm">
-          <button
-            type="button"
-            onClick={onFinish}
-            disabled={loading}
-            className="flex-1 px-4 py-3 bg-white border border-neutral-200 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-50 transition-colors disabled:opacity-50"
-          >
-            Batal
+              </section>
+              <section className="surface">
+                <div className="mb-6 flex items-center gap-3">
+                  <Link2 size={19} className="text-[var(--accent-text)]" />
+                  <h2 className="section-heading">Dokumen digital</h2>
+                </div>
+                <label className="field-label" htmlFor="googleDriveLink">
+                  Tautan dokumen
+                </label>
+                <input
+                  {...fieldProps('googleDriveLink')}
+                  type="url"
+                  placeholder="https://drive.google.com/file/d/…"
+                />
+                {errorText('googleDriveLink')}
+                <p className="mt-3 text-sm text-[var(--text-muted)]">
+                  Tempel tautan Google Drive atau dokumen daring. Pastikan
+                  penerima memiliki izin untuk membukanya.
+                </p>
+                {arsipToEdit?.filePath && (
+                  <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                    File tersimpan tetap tersedia saat tautan dokumen
+                    dikosongkan.
+                  </p>
+                )}
+              </section>
+            </div>
+            <aside className="min-w-0 space-y-8">
+              <section>
+                <div className="mb-5 flex items-center gap-3">
+                  <Tag size={18} className="text-[var(--accent-text)]" />
+                  <h2 className="section-heading">Label arsip</h2>
+                </div>
+                <p className="mb-5 text-sm text-[var(--text-muted)]">
+                  Kelompokkan dokumen agar lebih cepat ditemukan.
+                </p>
+                <div className="space-y-2">
+                  {(labels.data || []).map((label) => (
+                    <label
+                      key={label.id}
+                      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-2 hover:bg-[var(--hover)]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={labelIds.includes(String(label.id))}
+                        onChange={() => toggleLabel(String(label.id))}
+                        className="h-4 w-4 accent-[#8052ff]"
+                      />
+                      <LabelBadge label={label} />
+                    </label>
+                  ))}
+                </div>
+                {!labels.isPending && !labels.data?.length && (
+                  <p className="text-sm text-[var(--text-muted)]">
+                    Belum ada label. Label dapat dibuat melalui menu Label.
+                  </p>
+                )}
+              </section>
+            </aside>
+          </div>
+          {failure && (
+            <div role="alert" className="dialog-error mt-8">
+              {failure}
+            </div>
+          )}
+          <div className="form-savebar mt-10 flex flex-wrap items-center justify-between gap-4">
+            <span role="status" className="text-sm text-[var(--text-muted)]">
+              {saving
+                ? 'Menyimpan perubahan…'
+                : classifications.isPending || labels.isPending
+                  ? 'Memuat pilihan klasifikasi dan label…'
+                  : dirty
+                    ? 'Perubahan belum disimpan'
+                    : 'Isi data lalu simpan arsip'}
+            </span>
+            <div className="flex gap-3">
+              <button className="btn-secondary" type="button" onClick={cancel}>
+                Batal
+              </button>
+              <button className="btn-primary" type="submit">
+                {saving ? (
+                  <Loader2 size={17} className="animate-spin" />
+                ) : (
+                  <Save size={17} />
+                )}{' '}
+                {saving ? 'Menyimpan…' : 'Simpan arsip'}
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        </fieldset>
+      </form>
+      <Modal
+        isOpen={blocker.state === 'blocked' || !!pendingLogout}
+        onClose={stay}
+        size="sm"
+      >
+        <ModalHeader onClose={stay}>
+          <ModalTitle>Simpan perubahan dulu?</ModalTitle>
+        </ModalHeader>
+        <ModalContent>
+          <p className="text-[var(--text-secondary)]">
+            Perubahan Anda belum disimpan. Keluar sekarang akan menghapus isian
+            terbaru.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <button className="btn-secondary" disabled={saving} onClick={stay}>
+            Lanjut mengisi
           </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-[2] px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <Save size={20} />
-                Simpan Arsip
-              </>
-            )}
+          <button className="btn-secondary" disabled={saving} onClick={discard}>
+            Keluar tanpa menyimpan
           </button>
-        </div>
-      </form >
-    </div >
+        </ModalFooter>
+      </Modal>
+    </div>
   );
 }

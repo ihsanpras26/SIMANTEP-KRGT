@@ -2,54 +2,65 @@
 
 ## Batas tanggung jawab
 
-`src/main.jsx` memuat font lokal serta memasang provider React Query, router,
-Helmet, dan preferensi reduced motion. `src/app/App.jsx`
-menggabungkan rute, sesi login, subscription realtime, dan komponen fitur.
+`src/main.jsx` memuat font Inter lokal dan memasang React Query serta router.
+`app/App.jsx` menangani konfigurasi, sesi, dan gerbang login. Setelah autentikasi,
+`app/AuthenticatedApp.jsx` memuat kerangka aplikasi, rute fitur secara lazy,
+dan subscription realtime. Halaman login tidak menjalankan query arsip.
 
-Setiap direktori `features/` menyimpan komponen, halaman, hook, atau utilitas yang
-khusus untuk fitur tersebut. Tambahkan subdirektori hanya bila diperlukan.
+| Lokasi                 | Tanggung jawab                                                   |
+| ---------------------- | ---------------------------------------------------------------- |
+| `app/routes`           | Penghubung data dengan dashboard dan form arsip                  |
+| `features/arsip`       | Daftar, detail, form, impor/ekspor, query, mutation, dan retensi |
+| `features/auth`        | Login Supabase, pemeriksaan sesi, dan pembersihan cache          |
+| `features/dashboard`   | Statistik dan grafik SVG tanpa pustaka grafik tambahan           |
+| `features/klasifikasi` | Hierarki kode, pencarian, query, dan CRUD klasifikasi            |
+| `features/labels`      | CRUD label, statistik penggunaan, dan assignment massal          |
+| `components/layout`    | Sidebar, header, drawer ponsel, dan pencarian cepat              |
+| `components/shared`    | Pagination                                                       |
+| `components/ui`        | Button, badge, card, input, modal, tabel, dan stat card          |
+| `lib`                  | Klien Supabase tunggal dan helper class name                     |
+| `styles`               | Token Tailwind CSS 4, kerangka dashboard, dan CSS responsif      |
+| `tests`                | Regresi layanan, autentikasi, URL, status, dan alur browser      |
+| `scripts`              | Pemeriksaan struktur dan utilitas inspeksi database manual       |
 
-| Lokasi | Tanggung jawab |
-| --- | --- |
-| `features/arsip` | Form, daftar, detail, impor spreadsheet, dan status retensi |
-| `features/klasifikasi` | Pengelolaan kode klasifikasi dan query terkait |
-| `features/labels` | Pengelolaan label, assignment, dan query terkait |
-| `features/auth` | Form login dan pesan konfigurasi |
-| `features/dashboard` | Statistik, halaman dashboard, dan animasi penghitung |
-| `components/layout` | Sidebar, header, layout, dan command palette |
-| `components/shared` | Dialog, input pencarian, tooltip, pagination, dan loading |
-| `components/ui` | Button, badge, card, input, modal, tabel, dan stat card |
-| `lib` | Klien Supabase tunggal dan helper class name |
-| `stores` | State Zustand yang digunakan bersama |
-| `styles` | CSS global, token `@theme` Tailwind CSS 4, dan animasi |
-| `scripts` | Pemeriksaan struktur dan inspeksi database manual |
-| `tests` | Regresi fungsi dan query di luar entry point aplikasi |
+## Alur data
 
-## Konvensi
+React Query menjadi sumber cache data server. State sementara seperti dialog dan
+pilihan baris berada pada komponen; tidak ada salinan data server di Zustand.
+Pencarian, filter, urutan, mode tampilan, dan halaman daftar tersimpan di URL.
+Mutasi serta realtime menginvalidasi query yang terpengaruh, termasuk jumlah
+penggunaan label setelah relasi atau arsip berubah.
 
-- Komponen React memakai PascalCase; hook diawali `use`.
-- Komponen khusus fitur berada di fitur tersebut. Komponen tanpa logika bisnis
-  yang digunakan lintas fitur berada di `shared/` atau `ui/`.
-- Jangan membuat implementasi kedua dengan nama yang sama di `pages/` dan `components/`.
-  Halaman khusus fitur ditempatkan di `features/<fitur>/pages/`.
-- Konstanta varian UI berada dalam modul terpisah agar Fast Refresh bekerja.
-- Gunakan impor relatif ke modul yang memiliki tanggung jawab terkait.
-- Semua berkas sumber harus terjangkau dari entry point; hapus prototipe yang tidak dipakai
-  atau dokumentasikan dan daftarkan entry point independennya.
-- Jalankan `npm run check:structure`, `npm run lint`, `npm test`, dan `npm run build` sebelum push.
+`arsipService.js`, `listState.js`, dan `statusUtils.js` mempertahankan perilaku
+query versi sebelumnya: pagination server, jumlah hasil yang tepat, urutan stabil,
+pencarian literal, batch lengkap untuk sortir turunan/filter status, dan retensi
+permanen. Dashboard memuat koleksi lengkap hanya ketika dibuka. Daftar tidak
+mengambil seluruh koleksi untuk pencarian biasa. XLSX dimuat saat impor/ekspor.
 
-## Alur data saat ini
+Detail dan edit menggunakan `/arsip/:id` serta `/arsip/:id/edit`. Parameter `from`
+menyimpan tujuan kembali yang dibatasi pada rute daftar. Dokumen Google Drive dan
+file pada bucket Supabase yang sudah ada tetap dapat dibuka; iframe pratinjau
+baru dimuat setelah pengguna memintanya.
 
-Sistem visual memakai token CSS di `src/styles/index.css`; jangan menambahkan
-konfigurasi tema kedua. `tailwind.config.js` lama tidak dimuat oleh konfigurasi
-Tailwind CSS 4 dan telah dihapus. Impor font dari paket npm berada di `src/main.jsx`
-agar Vite dapat menyelesaikan URL aset font saat build.
+Penyimpanan arsip dan perubahan relasi label merupakan permintaan terpisah.
+Jika arsip tersimpan tetapi label gagal, form menyimpan identitas hasil agar
+percobaan berikutnya memperbarui arsip yang sama. Impor memvalidasi sebelum
+menulis, melaporkan hasil per baris, dan mempertahankan kolom kosong pada mode
+pembaruan. Proses ini bukan transaksi lintas baris. Pencegahan duplikasi melalui
+pemeriksaan klien tidak menggantikan constraint database untuk penulisan bersamaan.
 
-Hook fitur menggunakan React Query untuk membaca Supabase. `App.jsx` menyinkronkan hasil
-query ke store bersama dan memasang subscription realtime. Beberapa komponen masih memakai
-store atau prop `supabase` secara langsung. Struktur ini mempertahankan alur yang ada;
-penyatuan seluruh mutation dan invalidation dapat dilakukan sebagai refactor terpisah.
+Tidak ada perubahan skema, migrasi, indeks, fungsi SQL, atau kebijakan RLS dalam
+perombakan antarmuka ini. Otorisasi tetap ditentukan Supabase Auth dan RLS.
 
-Fitur arsip aktif memakai tautan Google Drive dan/atau file Supabase Storage. Implementasi
-upload Google Drive lama tidak terhubung ke aplikasi, sehingga dihapus bersama pemuatan
-SDK global yang tidak digunakan. Tautan Google Drive pada fitur aktif tetap tersedia.
+## Konvensi dan pemeriksaan
+
+- Komponen memakai PascalCase; hook diawali `use`.
+- Letakkan logika bisnis dalam fitur terkait; gunakan `ui/` untuk komponen bersama.
+- Semua sumber aplikasi harus terjangkau dari entry point, termasuk lazy import.
+- Gunakan token dari `styles/index.css`; hindari konfigurasi tema kedua.
+- Jalankan `npm run check:structure`, `npm run lint`, `npm test`, dan `npm run build`.
+- Untuk perubahan alur pengguna, jalankan `npm run test:e2e` setelah memasang Chromium
+  dengan `npx playwright install chromium`. Pengujian menggunakan data contoh lokal
+  dan menolak koneksi eksternal selain API contoh yang diintersep.
+
+Detail hasil perombakan ada di [panduan perombakan SaaS](perombakan-saas.md).

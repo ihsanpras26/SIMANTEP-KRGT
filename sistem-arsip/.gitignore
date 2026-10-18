@@ -25,3 +25,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Local verification artifacts
+work/
+playwright-report/
+test-results/

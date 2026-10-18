@@ -1,106 +1,191 @@
-import React from 'react';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-import { cn } from '../../lib/cn';
-import { Button } from './Button';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+import { cn } from "../../lib/cn";
+import { dialogStack, focusableElements, lockBodyScroll } from "./dialogState";
 
-const Modal = ({ isOpen, onClose, children, className, size = 'default' }) => {
-  const sizeClasses = {
-    sm: 'max-w-md',
-    default: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-    full: 'max-w-7xl',
-  };
+const DialogContext = createContext({});
 
-  React.useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+function Modal({
+  isOpen,
+  onClose,
+  children,
+  className,
+  size = "default",
+  initialFocusRef,
+  "aria-label": ariaLabel,
+  "aria-labelledby": labelledBy,
+  "aria-describedby": describedBy,
+}) {
+  const id = useId();
+  const panelRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-    return () => {
-      document.body.style.overflow = 'unset';
+  useEffect(() => {
+    if (!isOpen) return;
+    const panel = panelRef.current;
+    const previousFocus = document.activeElement;
+    const releaseScroll = lockBodyScroll();
+    const entry = { id, panel };
+    dialogStack.push(entry);
+    const isTop = () => dialogStack.at(-1) === entry;
+    const focusFirst = () =>
+      (
+        initialFocusRef?.current ||
+        panel.querySelector("[data-autofocus]") ||
+        focusableElements(panel)[0] ||
+        panel
+      ).focus();
+    const frame = requestAnimationFrame(focusFirst);
+    const handleKey = (event) => {
+      if (!isTop() || event.defaultPrevented) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onCloseRef.current?.();
+      }
+      if (event.key === "Tab") {
+        const controls = focusableElements(panel);
+        if (!controls.length) {
+          event.preventDefault();
+          panel.focus();
+          return;
+        }
+        const first = controls[0],
+          last = controls.at(-1);
+        if (
+          event.shiftKey &&
+          (document.activeElement === first || document.activeElement === panel)
+        ) {
+          event.preventDefault();
+          last.focus();
+        } else if (
+          !event.shiftKey &&
+          (document.activeElement === last ||
+            !panel.contains(document.activeElement))
+        ) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
-  }, [isOpen]);
+    const containFocus = (event) => {
+      if (isTop() && !panel.contains(event.target)) focusFirst();
+    };
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("focusin", containFocus);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("focusin", containFocus);
+      const wasTop = isTop();
+      const index = dialogStack.indexOf(entry);
+      if (index >= 0) dialogStack.splice(index, 1);
+      releaseScroll();
+      if (
+        wasTop &&
+        previousFocus?.isConnected &&
+        (!dialogStack.length ||
+          dialogStack.at(-1).panel.contains(previousFocus))
+      )
+        previousFocus.focus();
+    };
+  }, [isOpen, id, initialFocusRef]);
 
+  if (!isOpen) return null;
   return createPortal(
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={onClose}
-          />
-          
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', duration: 0.3 }}
-            className={cn(
-              'relative max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] w-full overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-soft border border-neutral-200',
-              sizeClasses[size],
-              className
-            )}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {children}
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>,
-    document.body
-  );
-};
-
-const ModalHeader = ({ children, className, onClose }) => (
-  <div className={cn('sticky top-0 z-10 flex items-center justify-between gap-3 rounded-t-2xl bg-white p-4 sm:p-6 border-b border-neutral-200', className)}>
-    <div className="flex-1">{children}</div>
-    {onClose && (
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Tutup dialog"
-        onClick={onClose}
-        className="h-8 w-8 rounded-full hover:bg-gray-100"
+    <DialogContext.Provider
+      value={{ titleId: `${id}-title`, descriptionId: `${id}-description` }}
+    >
+      <div
+        className="dialog-overlay"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onClose?.();
+        }}
       >
-        <X size={16} />
-      </Button>
-    )}
-  </div>
-);
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={ariaLabel || "Dialog"}
+          aria-labelledby={
+            labelledBy || (!ariaLabel ? `${id}-title` : undefined)
+          }
+          aria-describedby={describedBy}
+          tabIndex={-1}
+          className={cn("dialog-panel", `dialog-size-${size}`, className)}
+        >
+          {children}
+        </div>
+      </div>
+    </DialogContext.Provider>,
+    document.body,
+  );
+}
 
-const ModalTitle = ({ children, className }) => (
-  <h2 className={cn('text-xl font-semibold text-gray-900', className)}>
-    {children}
-  </h2>
-);
-
-const ModalDescription = ({ children, className }) => (
-  <p className={cn('text-sm text-gray-600 mt-1', className)}>
-    {children}
-  </p>
-);
-
-const ModalContent = ({ children, className }) => (
-  <div className={cn('p-4 sm:p-6', className)}>
-    {children}
-  </div>
-);
-
-const ModalFooter = ({ children, className }) => (
-  <div className={cn('flex flex-wrap items-center justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200', className)}>
-    {children}
-  </div>
-);
-
-export { Modal, ModalHeader, ModalTitle, ModalDescription, ModalContent, ModalFooter };
+function ModalHeader({ children, className, onClose }) {
+  return (
+    <div className={cn("dialog-header", className)}>
+      <div className="min-w-0 flex-1">{children}</div>
+      {onClose && (
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onClose}
+          aria-label="Tutup dialog"
+        >
+          <X size={19} />
+        </button>
+      )}
+    </div>
+  );
+}
+function ModalTitle({ children, className, id, ...props }) {
+  const { titleId } = useContext(DialogContext);
+  return (
+    <h2 id={id || titleId} className={cn("dialog-title", className)} {...props}>
+      {children}
+    </h2>
+  );
+}
+function ModalDescription({ children, className, id, ...props }) {
+  const { descriptionId } = useContext(DialogContext);
+  return (
+    <p
+      id={id || descriptionId}
+      className={cn("dialog-description", className)}
+      {...props}
+    >
+      {children}
+    </p>
+  );
+}
+function ModalContent({ children, className, ...props }) {
+  return (
+    <div className={cn("dialog-content", className)} {...props}>
+      {children}
+    </div>
+  );
+}
+function ModalFooter({ children, className, ...props }) {
+  return (
+    <div className={cn("dialog-footer", className)} {...props}>
+      {children}
+    </div>
+  );
+}
+export {
+  Modal,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalContent,
+  ModalFooter,
+};

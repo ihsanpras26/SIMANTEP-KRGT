@@ -1,885 +1,887 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  Search,
-  Filter,
-  Download,
-  Tag,
-  Grid,
-  List as ListIcon,
-  Eye,
-  Edit,
-  Calendar,
-  X,
-  Check,
-  MoreHorizontal,
-  Trash2,
-  Plus,
-  ArrowUpDown,
-  ArrowUp,
   ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ArrowUpRight,
+  Check,
+  Download,
+  FileText,
+  Grid2X2,
+  List,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Tag,
+  Trash2,
   Upload,
-  FileSpreadsheet
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
-import { id } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
-import { cn } from '../../../lib/cn';
-import Tooltip from '../../../components/shared/Tooltip';
-import SearchableSelect from '../../../components/shared/SearchableSelect';
-import { getArsipStatus } from '../utils/statusUtils';
-import LabelManager from '../../labels/components/LabelManager';
-import LabelBadge from '../../labels/components/LabelBadge';
-import StatusBadge from './StatusBadge';
-import BulkImportModal from './BulkImportModal';
-import LabelAssignmentModal from '../../labels/components/LabelAssignmentModal';
-import ContextMenu from './ContextMenu';
-import RowActionsMenu from './RowActionsMenu';
-import Pagination from '../../../components/shared/Pagination';
-import EmptyState from '../../../components/shared/EmptyState';
-import { Modal, ModalHeader, ModalTitle, ModalContent, Button } from '../../../components/ui';
-import useAppStore from '../../../stores/useAppStore';
-import { useArsip } from '../hooks/useArsip';
-import { readListState, updateListParams } from '../utils/listState';
-import { useKlasifikasi } from '../../klasifikasi/hooks/useKlasifikasi';
-import SkeletonArsipList from './SkeletonArsipList';
+  X,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { useArsip, ARSIP_KEYS } from "../hooks/useArsip";
+import { useKlasifikasi } from "../../klasifikasi/hooks/useKlasifikasi";
+import { useLabels } from "../../labels/hooks/useLabels";
+import { readListState, updateListParams } from "../utils/listState";
+import {
+  formatArchiveDate,
+  exportRows,
+  localDate,
+} from "../utils/archiveFields";
+import { getArsipStatus } from "../utils/statusUtils";
+import { fetchArsip, fetchArsipDetail } from "../services/arsipService";
+import { deleteArchive } from "../services/archiveMutations";
+import LabelBadge from "../../labels/components/LabelBadge";
+import StatusBadge from "./StatusBadge";
+import ActionMenu from "../../../components/ui/ActionMenu";
+import Pagination from "../../../components/shared/Pagination";
+import {
+  Modal,
+  ModalHeader,
+  ModalTitle,
+  ModalContent,
+  ModalFooter,
+} from "../../../components/ui";
+
+const BulkImportModal = lazy(() => import("./BulkImportModal"));
+const LabelAssignmentModal = lazy(
+  () => import("../../labels/components/LabelAssignmentModal"),
+);
+const sortColumns = [
+  ["nomorSurat", "Nomor surat"],
+  ["perihal", "Perihal"],
+  ["tanggalSurat", "Tanggal surat"],
+  ["kodeKlasifikasi", "Klasifikasi"],
+  ["label", "Label"],
+  ["status", "Status"],
+];
 
 export default function ArsipList({
-  setEditingArsip,
   supabase,
-  setDeleteConfirmModal,
+  setEditingArsip,
   setSelectedArsipDetail,
-  showNotification
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const {
-    viewMode, page: currentPage, pageSize: itemsPerPage, searchTerm,
-    filterKlasifikasi, filterLabel, sortBy, sortOrder, filterDate, filterStatus,
-  } = readListState(searchParams);
-  const changeList = (patch, options) => setSearchParams(previous => updateListParams(previous, patch), options);
-  const setViewMode = value => changeList({ viewMode: value });
-  const setCurrentPage = value => changeList({ page: value });
-  const setItemsPerPage = value => changeList({ pageSize: value });
-  const setSearchTerm = value => changeList({ searchTerm: value }, { replace: true });
-  const setFilterKlasifikasi = value => changeList({ filterKlasifikasi: value });
-  const setFilterLabel = value => changeList({ filterLabel: value });
-  const setFilterStatus = value => changeList({ filterStatus: value });
-  const setFilterDate = value => changeList({ filterDate: value });
-  const setSortBy = value => changeList({ sortBy: value });
-  const resetFilters = () => changeList({ filterStatus: 'all', filterKlasifikasi: 'all', filterLabel: 'all', filterDate: '' });
-  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterOverflow, setFilterOverflow] = useState('hidden');
-  const [showLabelManager, setShowLabelManager] = useState(false);
-  const [labelAssignmentTarget, setLabelAssignmentTarget] = useState(null);
-  const [showLabelAssignmentModal, setShowLabelAssignmentModal] = useState(false);
-  const [selectedItems, setSelectedItems] = useState(new Set());
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [showBulkImport, setShowBulkImport] = useState(false);
-  const [bulkImportMode, setBulkImportMode] = useState('create'); // 'create' | 'update'
-  const filterButtonRef = useRef(null);
-
-  // Physical columns use server pagination; derived values use a complete cached result.
-  const { data: arsipQueryData, isLoading: arsipLoading, isFetching, isPlaceholderData, isError, error, refetch } = useArsip({
-    page: currentPage,
-    pageSize: itemsPerPage,
-    searchTerm: debouncedSearch,
-    filterKlasifikasi,
-    filterLabel,
-    filterStatus,
-    filterDate,
-    sortBy,
-    sortOrder
-  });
-  const klasifikasiQuery = useKlasifikasi();
-  const { data: klasifikasiData } = klasifikasiQuery;
-  const listLoading = arsipLoading || klasifikasiQuery.isPending;
-  const listError = error || klasifikasiQuery.error;
-
-  const arsipList = arsipQueryData?.data || [];
-  const totalItems = arsipQueryData?.count || 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-  const resultsPending = debouncedSearch !== searchTerm || isPlaceholderData;
-  const listScope = searchParams.toString();
-
-  const klasifikasiList = klasifikasiData || [];
-  const {
-    labels
-  } = useAppStore();
-
-  useEffect(() => {
-    setSelectedItems(new Set());
-    setIsSelectionMode(false);
-    setContextMenu(null);
-  }, [listScope]);
-
-  useEffect(() => {
-    if (arsipQueryData && !isFetching && !resultsPending && currentPage > totalPages) {
-      setSearchParams(previous => updateListParams(previous, { page: totalPages }), { replace: true });
-    }
-  }, [arsipQueryData, isFetching, resultsPending, currentPage, totalPages, setSearchParams]);
-
-  // Using `arsipList` directly as it is now the "Page Data".
-  const filteredData = arsipList; // The hook already filtered it!
-
-  // Context Menu State
-  const [contextMenu, setContextMenu] = useState(null); // { x, y, targetItems }
-
-  useEffect(() => {
-    // Close context menu on any click
-    const handleClick = () => setContextMenu(null);
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
-
-
-
-  const handleContextMenu = (e, item) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // If right-clicked item is part of selection, treat as "Action on Selection"
-    // If NOT part of selection, select ONLY this item and treat as "Action on Single Item"
-    let targets = null;
-    if (selectedItems.has(item.id)) {
-      targets = currentData.filter(i => selectedItems.has(i.id));
-    } else {
-      // Clear selection and select this one (visually safer for user)
-      // Or just act on this one without changing selection? Standard explorer behavior: select this one.
-      setSelectedItems(new Set([item.id]));
-      setIsSelectionMode(true); // Wait, if we want right click to select, we should update selection state.
-      targets = [item];
-    }
-
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      targetItems: targets
+  const params = readListState(searchParams);
+  const change = (patch) =>
+    setSearchParams((previous) => updateListParams(previous, patch), {
+      replace: "searchTerm" in patch,
     });
-  };
-
-
-
-  const startIndex = totalItems ? (currentPage - 1) * itemsPerPage : 0;
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-
-  const currentData = arsipList;
-
-  // Selection Handlers
-  const toggleSelection = (id) => {
-    const newSelection = new Set(selectedItems);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
+  const queryClient = useQueryClient();
+  const [term, setTerm] = useState(params.searchTerm);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selection, setSelection] = useState(new Set());
+  const [importMode, setImportMode] = useState(null);
+  const [labelTargets, setLabelTargets] = useState(null);
+  const [labelBusy, setLabelBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const exportController = useRef(null);
+  const operation = useRef(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setTerm(params.searchTerm), 200);
+    return () => clearTimeout(timer);
+  }, [params.searchTerm]);
+  useEffect(() => () => exportController.current?.abort(), []);
+  const query = useArsip({ ...params, searchTerm: term });
+  const classifications = useKlasifikasi();
+  const labels = useLabels();
+  const rows = query.data?.data || [];
+  const count = query.data?.count || 0;
+  const pages = Math.max(1, Math.ceil(count / params.pageSize));
+  const pending = term !== params.searchTerm || query.isPlaceholderData;
+  const loading = query.isLoading || classifications.isPending;
+  const error = query.error || classifications.error;
+  const scope = searchParams.toString();
+  useEffect(() => setSelection(new Set()), [scope]);
+  useEffect(() => {
+    if (query.data && !query.isFetching && !pending && params.page > pages)
+      setSearchParams(
+        (previous) => updateListParams(previous, { page: pages }),
+        { replace: true },
+      );
+  }, [
+    query.data,
+    query.isFetching,
+    pending,
+    params.page,
+    pages,
+    setSearchParams,
+  ]);
+  const selected = rows.filter((row) => selection.has(row.id));
+  const toggle = (id) =>
+    setSelection((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const filterCount = [
+    params.filterKlasifikasi !== "all",
+    params.filterLabel !== "all",
+    !!params.filterDate,
+  ].filter(Boolean).length;
+  const prefetch = (item) =>
+    queryClient.prefetchQuery({
+      queryKey: ARSIP_KEYS.detail(String(item.id)),
+      queryFn: ({ signal }) => fetchArsipDetail(supabase, item.id, signal),
+      staleTime: 30000,
+    });
+  const remove = async () => {
+    if (operation.current || !deleteTarget) return;
+    operation.current = true;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await deleteArchive(supabase, deleteTarget.id);
+      await queryClient.invalidateQueries({ queryKey: ["arsip"] });
+      await queryClient.invalidateQueries({ queryKey: ["labels"] });
+      toast.success("Arsip berhasil dihapus.");
+      setDeleteTarget(null);
+      setSelection(new Set());
+    } catch (failure) {
+      setDeleteError(failure.message);
+    } finally {
+      operation.current = false;
+      setDeleteBusy(false);
     }
-    setSelectedItems(newSelection);
-    setIsSelectionMode(newSelection.size > 0);
   };
-
-  const toggleSelectAll = () => {
-    if (selectedItems.size === currentData.length) {
-      setSelectedItems(new Set());
-      setIsSelectionMode(false);
-    } else {
-      const newSelection = new Set(currentData.map(item => item.id));
-      setSelectedItems(newSelection);
-      setIsSelectionMode(true);
+  const exportFile = async () => {
+    if (exportController.current) return;
+    const controller = new AbortController();
+    exportController.current = controller;
+    setExporting(true);
+    try {
+      const [result, XLSX] = await Promise.all([
+        fetchArsip(
+          supabase,
+          { ...params, page: "all" },
+          classifications.data || [],
+          controller.signal,
+        ),
+        import("xlsx"),
+      ]);
+      if (controller.signal.aborted) return;
+      if (!result.data.length) {
+        toast.error("Tidak ada arsip untuk diekspor.");
+        return;
+      }
+      const sheet = XLSX.utils.json_to_sheet(
+        exportRows(result.data, classifications.data || []),
+      );
+      sheet["!cols"] = [28, 18, 50, 20, 30, 30, 55, 28, 16, 18].map((wch) => ({
+        wch,
+      }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, "Arsip");
+      XLSX.writeFile(workbook, `arsip-${localDate()}.xlsx`);
+      toast.success(
+        `${result.data.length.toLocaleString("id-ID")} arsip diekspor sesuai filter.`,
+      );
+    } catch (failure) {
+      if (!controller.signal.aborted)
+        toast.error(`Ekspor gagal: ${failure.message}`);
+    } finally {
+      exportController.current = null;
+      setExporting(false);
     }
   };
-
-  const handleOpenBulkLabel = () => {
-    const targets = currentData.filter(item => selectedItems.has(item.id));
-    setLabelAssignmentTarget(targets);
-    setShowLabelAssignmentModal(true);
-  };
-
-
-
-
-
-  // Export Logic
-  const handleExport = () => {
-    // ... same code ...
-    const dataToExport = filteredData.map(item => ({
-      'Nomor Surat': item.nomorSurat,
-      'Perihal': item.perihal,
-      'Tanggal Surat': format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id }),
-      'Klasifikasi': item.kodeKlasifikasi,
-      'Status': getArsipStatus(item, klasifikasiList),
-      'Labels': item.arsip_labels?.map(l => l.labels?.name).join(', ') || ''
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Arsip");
-    XLSX.writeFile(wb, `Arsip_Export_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
-
-  const toggleSort = (field) => {
-    if (sortBy === field) {
-      changeList({ sortOrder: sortOrder === 'asc' ? 'desc' : 'asc' });
-    } else {
-      changeList({ sortBy: field, sortOrder: 'asc' });
-    }
-  };
-
-  const SortIcon = ({ field }) => {
-    const isActive = sortBy === field;
-    if (!isActive) return <ArrowUpDown size={12} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
-    return sortOrder === 'asc'
-      ? <ArrowUp size={12} className="text-primary-600" />
-      : <ArrowDown size={12} className="text-primary-600" />;
-  };
-
-  const getKlasifikasiDeskripsi = (kode) => {
-    // ... same code ...
-    const klasifikasi = klasifikasiList.find(k => k.kode === kode);
-    return klasifikasi ? klasifikasi.deskripsi : 'Tidak ada deskripsi';
-  };
-
-  const handleManageLabels = (item) => {
-    setLabelAssignmentTarget(item);
-    setShowLabelAssignmentModal(true);
-  };
+  const sort = (column) =>
+    change({
+      sortBy: column,
+      sortOrder:
+        params.sortBy === column && params.sortOrder === "asc" ? "desc" : "asc",
+    });
+  const sortIcon = (column) =>
+    params.sortBy !== column ? (
+      <ArrowUpDown size={13} />
+    ) : params.sortOrder === "asc" ? (
+      <ArrowUp size={13} />
+    ) : (
+      <ArrowDown size={13} />
+    );
+  const actions = (item) => (
+    <div className="flex items-center justify-end gap-1">
+      <button
+        className="icon-button"
+        title="Edit arsip"
+        aria-label={`Edit ${item.perihal}`}
+        disabled={pending}
+        onClick={() => setEditingArsip(item)}
+      >
+        <Pencil size={15} />
+      </button>
+      <button
+        className="icon-button"
+        title="Kelola label"
+        aria-label={`Label ${item.perihal}`}
+        disabled={pending}
+        onClick={() => setLabelTargets([item])}
+      >
+        <Tag size={15} />
+      </button>
+      <button
+        className="icon-button text-[var(--danger)]"
+        title="Hapus arsip"
+        aria-label={`Hapus ${item.perihal}`}
+        disabled={pending}
+        onClick={() => {
+          setDeleteError("");
+          setDeleteTarget(item);
+        }}
+      >
+        <Trash2 size={15} />
+      </button>
+    </div>
+  );
+  const badge = (item) => (
+    <StatusBadge
+      status={
+        getArsipStatus(item, classifications.data || []) === "Aktif"
+          ? "active"
+          : "inactive"
+      }
+    />
+  );
+  const labelList = (item) => (
+    <div className="flex max-w-48 flex-wrap gap-1.5">
+      {item.arsip_labels?.length ? (
+        item.arsip_labels.map((link) => (
+          <LabelBadge
+            key={link.label_id ?? link.labels?.id}
+            label={link.labels}
+            size="sm"
+          />
+        ))
+      ) : (
+        <span className="text-xs text-[var(--text-muted)]">Tanpa label</span>
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-5 relative" aria-busy={listLoading || isFetching || resultsPending}>
-      {/* Enhanced Header with Primary CTA */}
-      <div className="flex flex-col gap-5">
-        {/* Top Row: Search + Primary CTA */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
-          {/* Enhanced Search - More Prominent */}
-          <div className="min-w-0 flex-1 w-full sm:w-auto">
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="text-neutral-400 group-focus-within:text-primary-600 transition-colors" size={19} />
-              </div>
-              <input
-                type="text"
-                placeholder="Cari berdasarkan nomor, perihal, atau pengirim..."
-                value={searchTerm}
-                aria-label="Cari arsip berdasarkan nomor, perihal, atau pengirim"
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block h-12 w-full pl-12 pr-12 bg-white border border-neutral-200 rounded-xl text-sm shadow-sm placeholder-neutral-500
-                  focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-colors"
-              />
-              {searchTerm && (
-                <button
-                  aria-label="Hapus pencarian"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-700 transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Primary CTA Button */}
-          <Button
-            size="lg"
-            onClick={() => setEditingArsip(null)}
-          >
-            <Plus size={20} strokeWidth={2.5} />
-            <span>Tambah Arsip</span>
-          </Button>
+    <div
+      className="space-y-8"
+      aria-busy={loading || query.isFetching || pending}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="page-heading">Daftar arsip</h1>
+          <p className="page-description">
+            Cari surat, lihat dokumen, atau tambah arsip baru.
+          </p>
         </div>
-
-        {/* Action Buttons - Reorganized by Function */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Group 1: View Mode */}
-          <div role="group" aria-label="Tampilan arsip" className="flex h-11 items-center rounded-xl border border-neutral-200 bg-neutral-100 p-1">
+        <Link to="/arsip/tambah" className="btn-primary">
+          <Plus size={17} /> Tambah arsip
+        </Link>
+      </div>
+      <div className="archive-toolbar flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            size={19}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+          />
+          <input
+            aria-label="Cari arsip"
+            className="field !h-12 !pl-12 !pr-12"
+            value={params.searchTerm}
+            onChange={(event) => change({ searchTerm: event.target.value })}
+            placeholder="Cari nomor surat, perihal, atau pengirim…"
+          />
+          {params.searchTerm && (
             <button
-              aria-label="Tampilan tabel" aria-pressed={viewMode === 'table'}
-              onClick={() => setViewMode('table')}
-              className={cn(
-                "flex h-9 w-10 items-center justify-center rounded-lg transition-colors",
-                viewMode === 'table' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-              )}
+              className="icon-button absolute right-1 top-1"
+              aria-label="Hapus pencarian"
+              onClick={() => change({ searchTerm: "" })}
             >
-              <ListIcon size={18} />
+              <X size={16} />
             </button>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="btn-secondary"
+            aria-expanded={filtersOpen}
+            aria-controls="archive-filters"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            <SlidersHorizontal size={16} /> Filter{" "}
+            {filterCount > 0 && (
+              <span className="text-[var(--accent-text)]">{filterCount}</span>
+            )}
+          </button>
+          <ActionMenu
+            items={[
+              {
+                label: "Impor Excel / CSV",
+                icon: Upload,
+                onSelect: () => setImportMode("create"),
+              },
+              {
+                label: "Perbarui dari Excel",
+                icon: Pencil,
+                onSelect: () => setImportMode("update"),
+              },
+            ]}
+          />
+          <button
+            className="btn-ghost"
+            disabled={exporting || pending || loading || !!error}
+            onClick={exportFile}
+            title="Ekspor semua hasil sesuai filter"
+          >
+            {exporting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}{" "}
+            {exporting ? "Mengekspor…" : "Ekspor"}
+          </button>
+          {exporting && (
             <button
-              aria-label="Tampilan kartu" aria-pressed={viewMode === 'grid'}
-              onClick={() => setViewMode('grid')}
-              className={cn(
-                "flex h-9 w-10 items-center justify-center rounded-lg transition-colors",
-                viewMode === 'grid' ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-              )}
+              className="btn-ghost"
+              onClick={() => exportController.current?.abort()}
             >
-              <Grid size={18} />
+              Batalkan
+            </button>
+          )}
+        </div>
+      </div>
+      {filtersOpen && (
+        <div
+          id="archive-filters"
+          className="grid gap-4 border-y border-[var(--line)] py-5 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          <label className="field-label">
+            Klasifikasi
+            <input
+              className="field mt-2"
+              list="filter-classifications"
+              value={
+                params.filterKlasifikasi === "all"
+                  ? ""
+                  : params.filterKlasifikasi
+              }
+              placeholder="Semua klasifikasi"
+              onChange={(event) =>
+                change({ filterKlasifikasi: event.target.value || "all" })
+              }
+            />
+            <datalist id="filter-classifications">
+              {(classifications.data || []).map((item) => (
+                <option key={item.id} value={item.kode}>
+                  {item.deskripsi}
+                </option>
+              ))}
+            </datalist>
+          </label>
+          <label className="field-label">
+            Label
+            <select
+              className="field mt-2"
+              value={params.filterLabel}
+              onChange={(event) => change({ filterLabel: event.target.value })}
+            >
+              <option value="all">Semua label</option>
+              {(labels.data || []).map((label) => (
+                <option key={label.id} value={label.id}>
+                  {label.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-label">
+            Tanggal surat
+            <input
+              type="date"
+              className="field mt-2"
+              value={params.filterDate}
+              onChange={(event) => change({ filterDate: event.target.value })}
+            />
+          </label>
+          <div className="flex items-end">
+            <button
+              className="btn-ghost"
+              onClick={() =>
+                change({
+                  filterKlasifikasi: "all",
+                  filterLabel: "all",
+                  filterDate: "",
+                })
+              }
+            >
+              <X size={15} /> Reset filter
             </button>
           </div>
-
-          {/* Divider */}
-          <div className="hidden h-7 w-px bg-neutral-200 sm:block"></div>
-
-          {/* Group 2: Data Actions */}
+          {labels.isError && (
+            <div role="alert" className="text-sm text-[var(--danger)]">
+              Label gagal dimuat.{" "}
+              <button onClick={() => labels.refetch()}>Coba lagi</button>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)]">
+        <div
+          className="flex gap-5"
+          role="group"
+          aria-label="Filter status arsip"
+        >
+          {[
+            ["all", "Semua arsip"],
+            ["active", "Aktif"],
+            ["inactive", "Inaktif"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              className={`border-b-2 pb-4 text-sm ${params.filterStatus === value ? "border-[#8052ff] text-[var(--text-primary)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+              aria-pressed={params.filterStatus === value}
+              onClick={() => change({ filterStatus: value })}
+            >
+              {label}
+              {params.filterStatus === value && !pending && !loading && (
+                <span className="ml-2 rounded-full bg-[var(--hover)] px-2 py-0.5 text-xs tabular-nums">
+                  {count.toLocaleString("id-ID")}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div
+          className="mb-3 flex items-center gap-1"
+          role="group"
+          aria-label="Tampilan arsip"
+        >
           <button
-            onClick={() => {
-              setBulkImportMode('create');
-              setShowBulkImport(true);
-            }}
-            className="flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium"
+            className="icon-button"
+            aria-label="Tampilan tabel"
+            aria-pressed={params.viewMode === "table"}
+            onClick={() => change({ viewMode: "table" })}
           >
-            <Upload size={18} />
-            <span className="inline">Import</span>
+            <List size={18} />
           </button>
-
           <button
-            onClick={() => {
-              setBulkImportMode('update');
-              setShowBulkImport(true);
-            }}
-            className="flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium"
+            className="icon-button"
+            aria-label="Tampilan kartu"
+            aria-pressed={params.viewMode === "grid"}
+            onClick={() => change({ viewMode: "grid" })}
           >
-            <FileSpreadsheet size={18} />
-            <span className="inline">Edit Massal</span>
-          </button>
-
-          <button
-            onClick={handleExport}
-            className="flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium"
-          >
-            <Download size={18} />
-            <span className="inline">Export</span>
-          </button>
-
-          {/* Divider */}
-          <div className="hidden h-7 w-px bg-neutral-200 sm:block"></div>
-
-          {/* Group 3: Organization & Filters */}
-          <button
-            onClick={() => {
-              const newMode = !isSelectionMode;
-              setIsSelectionMode(newMode);
-              if (!newMode) setSelectedItems(new Set());
-            }}
-            className={cn(
-              "flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium",
-              isSelectionMode && "bg-primary-50 border-primary-500 text-primary-700"
-            )}
-          >
-            <Tag size={18} />
-            <span className="inline">Label</span>
-          </button>
-
-          <button
-            ref={filterButtonRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowFilters(!showFilters);
-            }}
-            className={cn(
-              "flex h-11 items-center gap-2 px-3 bg-white border border-neutral-200 text-sm text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium",
-              showFilters && "bg-primary-50 border-primary-500 text-primary-700"
-            )}
-          >
-            <Filter size={18} />
-            <span className="inline">Filter</span>
+            <Grid2X2 size={17} />
           </button>
         </div>
       </div>
-
-      {/* Active Filters Chips */}
-      {(filterStatus !== 'all' || filterKlasifikasi !== 'all' || filterDate || filterLabel !== 'all') && (
-        <div className="flex flex-wrap items-center gap-2 -mt-2">
-          <span className="text-xs font-medium text-neutral-500 mr-1">Filter Aktif:</span>
-          {filterStatus !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
-              Status: {filterStatus === 'active' ? 'Aktif' : 'Inaktif'}
-              <button aria-label="Hapus filter status" onClick={() => setFilterStatus('all')} className="hover:bg-primary-100 rounded-full p-0.5">
-                <X size={12} />
-              </button>
-            </span>
+      {(filterCount > 0 || params.searchTerm) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+          {params.searchTerm && <span>Pencarian: “{params.searchTerm}”</span>}
+          {params.filterKlasifikasi !== "all" && (
+            <button
+              className="btn-ghost !text-xs"
+              onClick={() => change({ filterKlasifikasi: "all" })}
+            >
+              {params.filterKlasifikasi}
+              <X size={12} />
+            </button>
           )}
-          {filterKlasifikasi !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary-50 text-primary-700 border border-primary-200">
-              Klasifikasi: {filterKlasifikasi}<button aria-label="Hapus filter klasifikasi" onClick={() => setFilterKlasifikasi('all')}><X size={12} /></button>
-            </span>
+          {params.filterLabel !== "all" && (
+            <button
+              className="btn-ghost !text-xs"
+              onClick={() => change({ filterLabel: "all" })}
+            >
+              {labels.data?.find(
+                (item) => String(item.id) === params.filterLabel,
+              )?.name || "Label terpilih"}
+              <X size={12} />
+            </button>
           )}
-          {filterLabel !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary-50 text-primary-700 border border-primary-200">
-              Label: {labels.find(label => String(label.id) === filterLabel)?.name || filterLabel}<button aria-label="Hapus filter label" onClick={() => setFilterLabel('all')}><X size={12} /></button>
-            </span>
+          {params.filterDate && (
+            <button
+              className="btn-ghost !text-xs"
+              onClick={() => change({ filterDate: "" })}
+            >
+              {formatArchiveDate(params.filterDate)}
+              <X size={12} />
+            </button>
           )}
-          {filterDate && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary-50 text-primary-700 border border-primary-200">
-              Tanggal: {format(new Date(`${filterDate}T00:00:00`), 'dd MMM yyyy', { locale: id })}<button aria-label="Hapus filter tanggal" onClick={() => setFilterDate('')}><X size={12} /></button>
-            </span>
-          )}
-          <button
-            onClick={() => {
-              resetFilters();
-            }}
-            className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline ml-2"
-          >
-            Reset Semua
-          </button>
         </div>
       )}
-
-      {/* Advanced Filters Panel */}
-      <AnimatePresence onExitComplete={() => setFilterOverflow('hidden')}>
-        {showFilters && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            onAnimationComplete={() => setFilterOverflow('visible')}
-            className={cn("filter-container", filterOverflow === 'visible' ? 'overflow-visible' : 'overflow-hidden')}
-          >
-            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-neutral-200">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-sm font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-2">
-                  <Filter size={16} />
-                  Filter & Urutkan
-                </h3>
-                <button
-                  onClick={() => {
-                    resetFilters();
-                  }}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline"
-                >
-                  Reset Semua
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {/* ... Filters Inputs ... */}
-                <div>
-                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Status Arsip</label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                  >
-                    <option value="all">Semua Status</option>
-                    <option value="active">Aktif</option>
-                    <option value="inactive">Inaktif</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Tanggal Surat</label>
-                  <input
-                    type="date"
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <SearchableSelect
-                    label="Kode Klasifikasi"
-                    placeholder="Cari kode..."
-                    options={klasifikasiList.map(k => ({
-                      value: k.kode,
-                      label: `${k.kode} - ${k.deskripsi}`
-                    }))}
-                    value={filterKlasifikasi}
-                    onChange={setFilterKlasifikasi}
-                  />
-                </div>
-                <div>
-                  <SearchableSelect
-                    label="Label"
-                    placeholder="Cari label..."
-                    options={labels.map(l => ({
-                      value: l.id,
-                      label: l.name
-                    }))}
-                    value={filterLabel}
-                    onChange={setFilterLabel}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Urutkan</label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                  >
-                    <option value="tanggalSurat">Tanggal Surat</option>
-                    <option value="nomorSurat">Nomor Surat</option>
-                    <option value="perihal">Perihal</option>
-                    <option value="kodeKlasifikasi">Kode Klasifikasi</option>
-                    <option value="label">Label</option>
-                    <option value="status">Status</option>
-                    <option value="created_at">Tanggal Input</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+      <p className="results-feedback" role="status" aria-live="polite">
+        {loading || pending || query.isFetching ? (
+          <>
+            <Loader2 size={14} className="animate-spin" /> Memuat hasil…
+          </>
+        ) : !error ? (
+          `${count.toLocaleString("id-ID")} arsip ditemukan`
+        ) : (
+          "Gagal memuat arsip"
         )}
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <div className="relative">
-        {isError || klasifikasiQuery.isError ? (
-          <div role="alert" className="bg-white border border-red-200 rounded-xl p-6 space-y-3">
-            <p className="font-semibold text-neutral-900">Data arsip gagal dimuat</p>
-            <p className="text-sm text-neutral-600">{listError?.message || 'Periksa koneksi dan coba kembali.'}</p>
-            <Button onClick={() => { refetch(); klasifikasiQuery.refetch(); }}>Coba lagi</Button>
+      </p>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#8052ff]/40 px-4 py-3">
+          <span className="flex items-center gap-2 text-sm">
+            <Check size={16} className="text-[var(--accent-text)]" />
+            {selected.length} arsip dipilih di halaman ini
+          </span>
+          <div className="flex gap-2">
+            <button
+              className="btn-secondary"
+              disabled={pending}
+              onClick={() => setLabelTargets(selected)}
+            >
+              <Tag size={15} /> Kelola label
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Batalkan pilihan"
+              onClick={() => setSelection(new Set())}
+            >
+              <X size={16} />
+            </button>
           </div>
-        ) : listLoading || resultsPending ? (
-          <SkeletonArsipList viewMode={viewMode} />
-        ) : currentData.length === 0 ? (
-          <EmptyState
-            type={searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all' || filterStatus !== 'all' || filterDate ? 'noResults' : 'noData'}
-            searchTerm={searchTerm}
-            activeFilters={
-              (filterKlasifikasi !== 'all' ? 1 : 0) +
-              (filterLabel !== 'all' ? 1 : 0) +
-              (filterDate ? 1 : 0) +
-              (filterStatus !== 'all' ? 1 : 0)
-            }
-            onAction={() => {
-              if (searchTerm || filterKlasifikasi !== 'all' || filterLabel !== 'all' || filterStatus !== 'all' || filterDate) {
-                changeList({ searchTerm: '', filterKlasifikasi: 'all', filterLabel: 'all', filterDate: '', filterStatus: 'all' });
-              } else {
-                setEditingArsip({});
-              }
+        </div>
+      )}
+      {error ? (
+        <div role="alert" className="empty-state">
+          <FileText size={32} />
+          <h2 className="section-heading">Arsip belum dapat dimuat.</h2>
+          <p>{error.message || "Periksa koneksi dan coba kembali."}</p>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              query.refetch();
+              classifications.refetch();
             }}
-          />
-        ) : viewMode === 'table' ? (
-          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden animate-fade-in">
-            <p className="border-b border-neutral-200 px-4 py-3 text-xs text-neutral-500 sm:hidden">Geser tabel untuk melihat kolom lainnya, atau pilih tampilan kartu.</p>
-            <div role="region" aria-label="Tabel arsip, dapat digeser horizontal" tabIndex={0} className="overflow-x-auto overscroll-x-contain">
-              <table className="w-full min-w-[1040px] table-fixed text-left text-sm border-collapse">
-                <colgroup>
-                  {isSelectionMode && <col className="w-12" />}
-                  <col className="w-44" /><col /><col className="w-40" /><col className="w-28" /><col className="w-40" /><col className="w-32" /><col className="w-16" />
-                </colgroup>
+          >
+            Coba lagi
+          </button>
+        </div>
+      ) : loading ? (
+        <div role="status" aria-label="Memuat arsip" className="space-y-5 py-5">
+          {[0, 1, 2, 3, 4, 5].map((item) => (
+            <div
+              key={item}
+              className="h-10 animate-pulse rounded-lg bg-[var(--hover)]"
+            />
+          ))}
+        </div>
+      ) : !rows.length ? (
+        <div className="empty-state">
+          <Search size={32} />
+          <h2 className="section-heading">
+            {params.searchTerm || filterCount || params.filterStatus !== "all"
+              ? "Arsip tidak ditemukan"
+              : "Belum ada arsip"}
+          </h2>
+          <p>
+            {params.searchTerm || filterCount
+              ? "Coba kata kunci lain atau kurangi filter pencarian."
+              : "Tambahkan arsip pertama untuk mulai menata dokumen."}
+          </p>
+          <button
+            className="btn-secondary"
+            onClick={() =>
+              change({
+                searchTerm: "",
+                filterStatus: "all",
+                filterKlasifikasi: "all",
+                filterLabel: "all",
+                filterDate: "",
+              })
+            }
+          >
+            Reset pencarian
+          </button>
+        </div>
+      ) : (
+        <>
+          {params.viewMode === "table" ? (
+            <div
+              role="region"
+              aria-label="Daftar arsip, geser untuk kolom lainnya"
+              tabIndex={0}
+              className={`archive-table-panel overflow-x-auto ${pending ? "opacity-50" : ""}`}
+            >
+              <table className="data-table w-full min-w-[980px]">
                 <thead>
-                  <tr className="bg-neutral-50 border-b border-neutral-200">
-                    {isSelectionMode && (
-                      <th className="w-12 p-4 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.size === currentData.length && currentData.length > 0}
-                          onChange={toggleSelectAll}
-                          className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                        />
-                      </th>
-                    )}
-                    {[
-                      ['nomorSurat', 'Nomor Surat'], ['perihal', 'Perihal'], ['tanggalSurat', 'Tanggal Surat'],
-                      ['kodeKlasifikasi', 'Kode Klasifikasi'], ['label', 'Label'], ['status', 'Status'],
-                    ].map(([field, label]) => (
-                      <th key={field} scope="col" aria-sort={sortBy === field ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'} className="px-4 py-3 text-xs font-semibold text-neutral-600">
-                        <button type="button" onClick={() => toggleSort(field)} className="flex min-h-9 w-full items-center gap-1 group text-left" aria-label={`Urutkan berdasarkan ${label}`}>
-                          {label}<SortIcon field={field} />
+                  <tr>
+                    <th className="w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Pilih semua arsip di halaman ini"
+                        className="h-4 w-4 accent-[#8052ff]"
+                        checked={
+                          selected.length === rows.length && rows.length > 0
+                        }
+                        disabled={pending}
+                        onChange={() =>
+                          setSelection(
+                            selected.length === rows.length
+                              ? new Set()
+                              : new Set(rows.map((item) => item.id)),
+                          )
+                        }
+                      />
+                    </th>
+                    {sortColumns.map(([column, label]) => (
+                      <th
+                        key={column}
+                        aria-sort={
+                          params.sortBy === column
+                            ? params.sortOrder === "asc"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
+                        }
+                      >
+                        <button
+                          className="flex items-center gap-2 text-left"
+                          onClick={() => sort(column)}
+                        >
+                          {label}
+                          {sortIcon(column)}
                         </button>
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-xs font-semibold text-neutral-600 text-center">Aksi</th>
+                    <th className="text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {currentData.map((item) => {
-                    const status = getArsipStatus(item, klasifikasiList);
-                    const isInactive = status === 'Inaktif';
-                    const isSelected = selectedItems.has(item.id);
-                    return (
-                      <tr
-                        key={item.id}
-                        onContextMenu={(e) => handleContextMenu(e, item)}
-                        className={cn(
-                          "group transition-all cursor-pointer border-b border-neutral-100 last:border-b-0",
-                          isSelected
-                            ? "bg-primary-50/50"
-                            : "hover:bg-neutral-50"
-                        )}
-                        onClick={() => setSelectedArsipDetail(item)}
-                      >
-                        {isSelectionMode && (
-                          <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelection(item.id)}
-                              className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                            />
-                          </td>
-                        )}
-                        <td className="px-4 py-4 break-all font-mono text-xs text-neutral-600">{item.nomorSurat}</td>
-                        <td className="px-4 py-4">
-                          <span className="font-medium text-neutral-900 line-clamp-2">
+                  {rows.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={
+                        selection.has(item.id) ? "bg-[var(--accent-soft)]" : ""
+                      }
+                    >
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`Pilih ${item.perihal}`}
+                          className="h-4 w-4 accent-[#8052ff]"
+                          checked={selection.has(item.id)}
+                          disabled={pending}
+                          onChange={() => toggle(item.id)}
+                        />
+                      </td>
+                      <td>
+                        <span className="whitespace-nowrap font-mono text-xs text-[var(--text-muted)]">
+                          {item.nomorSurat || "Tanpa nomor"}
+                        </span>
+                      </td>
+                      <td className="min-w-60 max-w-80">
+                        <button
+                          disabled={pending}
+                          onMouseEnter={() => prefetch(item)}
+                          onFocus={() => prefetch(item)}
+                          onClick={() => setSelectedArsipDetail(item)}
+                          className="group text-left"
+                        >
+                          <span className="line-clamp-2 text-sm text-[var(--text-primary)] group-hover:text-[var(--accent-text)]">
                             {item.perihal}
                           </span>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-neutral-600">
-                          {format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}
-                        </td>
-                        <td className="px-4 py-4">
-                          <Tooltip content={getKlasifikasiDeskripsi(item.kodeKlasifikasi)}>
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 cursor-help">
-                              {item.kodeKlasifikasi}
-                            </span>
-                          </Tooltip>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-1 items-center max-w-xs">
-                            {item.arsip_labels && item.arsip_labels.length > 0 ? (
-                              item.arsip_labels.map((al, idx) => (
-                                <LabelBadge key={`${al.label_id}-${idx}`} label={al.labels} size="sm" />
-                              ))
-                            ) : (
-                              <span className="text-xs text-neutral-400 italic">Tanpa label</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <StatusBadge status={isInactive ? 'inactive' : 'active'} />
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <RowActionsMenu
-                            item={item}
-                            onView={setSelectedArsipDetail}
-                            onEdit={setEditingArsip}
-                            onManageLabels={handleManageLabels}
-                            onDelete={(item) => {
-                              setDeleteConfirmModal({ show: true, arsipId: item.id });
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <span className="mt-1 block truncate text-xs text-[var(--text-muted)]">
+                            {item.pengirim || "Pengirim tidak dicantumkan"}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="whitespace-nowrap text-[var(--text-secondary)]">
+                        {formatArchiveDate(item.tanggalSurat)}
+                      </td>
+                      <td>
+                        <span
+                          className="font-mono text-xs text-[var(--text-secondary)]"
+                          title={
+                            classifications.data?.find(
+                              (k) => k.kode === item.kodeKlasifikasi,
+                            )?.deskripsi
+                          }
+                        >
+                          {item.kodeKlasifikasi}
+                        </span>
+                      </td>
+                      <td>{labelList(item)}</td>
+                      <td>{badge(item)}</td>
+                      <td>{actions(item)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
-            {currentData.map((item) => {
-              const status = getArsipStatus(item, klasifikasiList);
-              const isInactive = status === 'Inaktif';
-              const isSelected = selectedItems.has(item.id);
-              return (
-                <div
-                  key={item.id}
-                  onContextMenu={(e) => handleContextMenu(e, item)}
-                  className={cn(
-                    "bg-white rounded-xl shadow-sm border p-5 transition-all group relative flex flex-col h-full",
-                    isSelected ? "border-primary-500 ring-1 ring-primary-500 bg-primary-50/10" : "border-neutral-200 hover:shadow-md"
-                  )}
-                  onClick={() => setSelectedArsipDetail(item)}
+          ) : (
+            <div className={`space-y-5 ${pending ? "opacity-50" : ""}`}>
+              <label className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
+                Urutkan
+                <select
+                  className="field !w-auto"
+                  value={params.sortBy}
+                  onChange={(event) => change({ sortBy: event.target.value })}
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-2">
-                      {isSelectionMode && (
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            toggleSelection(item.id);
-                          }}
-                          className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                        />
-                      )}
-                      <Tooltip content={getKlasifikasiDeskripsi(item.kodeKlasifikasi)}>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 cursor-help">
-                          {item.kodeKlasifikasi}
-                        </span>
-                      </Tooltip>
-                    </div>
-
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleManageLabels(item); }}
-                        className="p-1.5 text-neutral-400 hover:text-primary-600 rounded-lg transition-colors bg-white shadow-sm border border-neutral-100"
-                        title="Kelola Label"
-                      >
-                        <Tag size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedArsipDetail(item); }}
-                        className="p-1.5 text-neutral-400 hover:text-primary-600 rounded-lg transition-colors bg-white shadow-sm border border-neutral-100"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditingArsip(item); }}
-                        className="p-1.5 text-neutral-400 hover:text-amber-600 rounded-lg transition-colors bg-white shadow-sm border border-neutral-100"
-                      >
-                        <Edit size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {item.arsip_labels?.map((al, idx) => (
-                      <LabelBadge key={`${al.label_id}-${idx}`} label={al.labels} />
-                    ))}
-                  </div>
-
-                  <h3
-                    className="font-bold text-neutral-900 mb-1 line-clamp-2 cursor-pointer hover:text-primary-600 transition-colors"
-                    title={item.perihal}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedArsipDetail(item);
-                    }}
+                  {sortColumns.map(([column, label]) => (
+                    <option key={column} value={column}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="icon-button"
+                  aria-label="Balik urutan"
+                  onClick={() =>
+                    change({
+                      sortOrder: params.sortOrder === "asc" ? "desc" : "asc",
+                    })
+                  }
+                >
+                  {sortIcon(params.sortBy)}
+                </button>
+              </label>
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {rows.map((item) => (
+                  <article
+                    key={item.id}
+                    className="min-w-0 rounded-3xl border border-[var(--line)] p-6"
                   >
-                    {item.perihal}
-                  </h3>
-                  <p className="font-mono text-xs text-neutral-500 mb-4">{item.nomorSurat}</p>
-
-                  <div className="mt-auto flex items-center justify-between text-xs text-neutral-500 pt-3 border-t border-neutral-100">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={14} />
-                      <span>{format(new Date(item.tanggalSurat), 'dd MMMM yyyy', { locale: id })}</span>
+                    <div className="mb-6 flex items-center justify-between">
+                      <FileText
+                        size={24}
+                        className="text-[var(--accent-text)]"
+                      />
+                      <input
+                        type="checkbox"
+                        aria-label={`Pilih ${item.perihal}`}
+                        checked={selection.has(item.id)}
+                        disabled={pending}
+                        onChange={() => toggle(item.id)}
+                        className="h-4 w-4 accent-[#8052ff]"
+                      />
                     </div>
-                    <span className={cn(
-                      "px-2 py-0.5 rounded-full font-medium border",
-                      isInactive
-                        ? "bg-amber-50 text-amber-700 border-amber-200"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    )}>
-                      {isInactive ? 'Inaktif' : 'Aktif'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-
-      {/* Pagination Footer */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        disabled={isFetching || resultsPending}
-        onPageChange={setCurrentPage}
-        itemsPerPage={itemsPerPage}
-        onItemsPerPageChange={setItemsPerPage}
-        totalItems={totalItems}
-        startIndex={startIndex}
-        endIndex={endIndex}
-      />
-
-      {/* Floating Bulk Action Bar */}
-      <AnimatePresence>
-        {isSelectionMode && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-4 left-4 right-4 mx-auto max-w-xl bg-neutral-900 text-white px-4 py-3 rounded-2xl shadow-soft z-40 flex flex-wrap items-center justify-between gap-3 lg:left-[calc(var(--sidebar-width)+2rem)] lg:right-8"
-          >
-            <div className="flex items-center gap-3 border-r border-neutral-700 pr-6">
-              <div className="px-2 py-0.5 bg-neutral-800 rounded text-xs font-mono font-bold">
-                {selectedItems.size}
+                    <button
+                      onMouseEnter={() => prefetch(item)}
+                      disabled={pending}
+                      onClick={() => setSelectedArsipDetail(item)}
+                      className="mb-4 block w-full text-left"
+                    >
+                      <span className="mb-2 block truncate font-mono text-xs text-[var(--text-muted)]">
+                        {item.nomorSurat || "Tanpa nomor"}
+                      </span>
+                      <h2 className="line-clamp-2 text-lg font-normal leading-snug">
+                        {item.perihal}
+                        <ArrowUpRight
+                          size={16}
+                          className="ml-1 inline text-[var(--text-muted)]"
+                        />
+                      </h2>
+                    </button>
+                    <p className="mb-5 text-xs text-[var(--text-muted)]">
+                      {formatArchiveDate(item.tanggalSurat)} ·{" "}
+                      {item.kodeKlasifikasi}
+                    </p>
+                    {labelList(item)}
+                    <div className="mt-6 flex items-center justify-between border-t border-[var(--line)] pt-4">
+                      {badge(item)}
+                      {actions(item)}
+                    </div>
+                  </article>
+                ))}
               </div>
-              <span className="text-sm font-medium">Terpilih</span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleOpenBulkLabel}
-                className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 rounded-lg text-sm font-bold transition-colors"
-              >
-                <Tag size={16} />
-                Label
-              </button>
-              <button
-                onClick={() => setSelectedItems(new Set())}
-                className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
-                title="Batal Pilih"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Modals */}
-      {showBulkImport && (
-        <BulkImportModal
-          isOpen={true}
-          onClose={() => {
-            setShowBulkImport(false);
-            setBulkImportMode('create'); // Reset to default
-          }}
-          onSuccess={() => {
-            // Refresh data
-            refetch();
-          }}
-          mode={bulkImportMode}
-          supabase={supabase}
-        />
+          )}
+          <Pagination
+            currentPage={params.page}
+            totalPages={pages}
+            onPageChange={(page) => change({ page })}
+            itemsPerPage={params.pageSize}
+            onItemsPerPageChange={(pageSize) => change({ pageSize })}
+            totalItems={count}
+            startIndex={(params.page - 1) * params.pageSize}
+            endIndex={Math.min(params.page * params.pageSize, count)}
+            disabled={query.isFetching || pending}
+          />
+        </>
       )}
-
-      <Modal isOpen={showLabelManager} onClose={() => setShowLabelManager(false)} size="lg">
-        <ModalHeader onClose={() => setShowLabelManager(false)}>
-          <ModalTitle>Kelola Label</ModalTitle>
-        </ModalHeader>
-        <ModalContent>
-          <LabelManager
+      {importMode && (
+        <Suspense fallback={<p role="status">Membuka impor…</p>}>
+          <BulkImportModal
+            isOpen
+            onClose={() => setImportMode(null)}
+            mode={importMode}
             supabase={supabase}
-            onClose={() => setShowLabelManager(false)}
-            showNotification={showNotification}
+            onSuccess={() =>
+              queryClient.invalidateQueries({ queryKey: ["arsip"] })
+            }
           />
-        </ModalContent>
-      </Modal>
-
-      {/* Bulk Label Modal (Unified) */}
-      <Modal isOpen={showLabelAssignmentModal} onClose={() => setShowLabelAssignmentModal(false)} size="sm">
-        <ModalHeader onClose={() => setShowLabelAssignmentModal(false)}>
-          <ModalTitle>
-            {Array.isArray(labelAssignmentTarget)
-              ? `Pilih Label (${labelAssignmentTarget.length} Item)`
-              : 'Pilih Label'}
-          </ModalTitle>
+        </Suspense>
+      )}
+      <Modal
+        isOpen={!!labelTargets}
+        onClose={() => !labelBusy && setLabelTargets(null)}
+        size="sm"
+      >
+        <ModalHeader
+          onClose={labelBusy ? undefined : () => setLabelTargets(null)}
+        >
+          <ModalTitle>Label untuk {labelTargets?.length || 0} arsip</ModalTitle>
         </ModalHeader>
         <ModalContent>
-          <LabelAssignmentModal
-            targetArsips={labelAssignmentTarget}
-            onClose={() => setShowLabelAssignmentModal(false)}
-            showNotification={showNotification}
-          />
+          {labelTargets && (
+            <Suspense fallback={<p role="status">Memuat label…</p>}>
+              <LabelAssignmentModal
+                targetArsips={labelTargets}
+                onBusyChange={setLabelBusy}
+                onClose={() => setLabelTargets(null)}
+              />
+            </Suspense>
+          )}
         </ModalContent>
       </Modal>
-
-
-
-      {/* Context Menu */}
-      {
-        contextMenu && (
-          <ContextMenu
-            position={{ x: contextMenu.x, y: contextMenu.y }}
-            targetItems={contextMenu.targetItems}
-            onClose={() => setContextMenu(null)}
-            onManageLabels={() => {
-              setLabelAssignmentTarget(contextMenu.targetItems);
-              setShowLabelAssignmentModal(true);
-            }}
-            onDelete={() => {
-              console.log('Delete requested');
-            }}
-            onViewDetail={() => {
-              if (contextMenu.targetItems.length === 1) {
-                setSelectedArsipDetail(contextMenu.targetItems[0]);
-              }
-            }}
-          />
-        )
-      }
-
-
-
-    </div >
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => !deleteBusy && setDeleteTarget(null)}
+        size="sm"
+      >
+        <ModalHeader
+          onClose={deleteBusy ? undefined : () => setDeleteTarget(null)}
+        >
+          <ModalTitle>Hapus arsip ini?</ModalTitle>
+        </ModalHeader>
+        <ModalContent>
+          <p className="mb-3 text-[var(--text-primary)]">
+            {deleteTarget?.perihal}
+          </p>
+          <p className="text-sm text-[var(--text-muted)]">
+            Arsip akan dihapus dari daftar. Tindakan ini tidak dapat dibatalkan.
+          </p>
+          {deleteError && (
+            <p role="alert" className="dialog-error mt-4">
+              {deleteError}
+            </p>
+          )}
+        </ModalContent>
+        <ModalFooter>
+          <button
+            className="btn-secondary"
+            disabled={deleteBusy}
+            onClick={() => setDeleteTarget(null)}
+          >
+            Batal
+          </button>
+          <button
+            className="btn-primary"
+            disabled={deleteBusy}
+            onClick={remove}
+          >
+            {deleteBusy ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Trash2 size={16} />
+            )}
+            {deleteBusy ? "Menghapus…" : "Hapus arsip"}
+          </button>
+        </ModalFooter>
+      </Modal>
+    </div>
   );
 }
