@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -9,14 +9,19 @@ import {
   Link2,
   Pencil,
   Tag,
-} from "lucide-react";
-import { documentLinks, formatArchiveDate } from "../utils/archiveFields";
-import { getArsipStatus } from "../utils/statusUtils";
-import { getArsipReturnPath } from "../utils/listState";
-import LabelBadge from "../../labels/components/LabelBadge";
-import StatusBadge from "../components/StatusBadge";
+} from 'lucide-react';
+import { documentLinks, formatArchiveDate } from '../utils/archiveFields';
+import { getArsipStatus } from '../utils/statusUtils';
+import { getArsipReturnPath } from '../utils/listState';
+import LabelBadge from '../../labels/components/LabelBadge';
+import StatusBadge from '../components/StatusBadge';
 
-export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
+export default function ArsipDetail({
+  arsip,
+  onBack,
+  klasifikasiList = [],
+  backLabel = 'Kembali ke daftar',
+}) {
   const [searchParams] = useSearchParams();
   const [previewOpen, setPreviewOpen] = useState(false);
   const links = documentLinks(arsip, import.meta.env.VITE_SUPABASE_URL);
@@ -29,26 +34,26 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
     Number(classification.retensiInaktif) === 0;
   const status = getArsipStatus(arsip, klasifikasiList);
   const fields = [
-    ["Nomor surat", arsip.nomorSurat || "Tanpa nomor"],
-    ["Tanggal surat", formatArchiveDate(arsip.tanggalSurat)],
+    ['Nomor surat', arsip.nomorSurat || 'Tanpa nomor'],
+    ['Tanggal surat', formatArchiveDate(arsip.tanggalSurat)],
     [
-      "Klasifikasi",
-      `${arsip.kodeKlasifikasi || "—"}${classification?.deskripsi ? ` · ${classification.deskripsi}` : ""}`,
+      'Klasifikasi',
+      `${arsip.kodeKlasifikasi || '—'}${classification?.deskripsi ? ` · ${classification.deskripsi}` : ''}`,
     ],
-    ["Pengirim", arsip.pengirim || "Tidak dicantumkan"],
-    ["Tujuan surat", arsip.tujuanSurat || "Tidak dicantumkan"],
+    ['Pengirim', arsip.pengirim || 'Tidak dicantumkan'],
+    ['Tujuan surat', arsip.tujuanSurat || 'Tidak dicantumkan'],
   ];
   return (
     <div className="archive-detail-page space-y-9">
       <button className="btn-ghost" onClick={onBack}>
-        <ArrowLeft size={16} /> Kembali ke daftar
+        <ArrowLeft size={16} /> {backLabel}
       </button>
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="max-w-3xl min-w-0">
           <p className="page-eyebrow">DETAIL ARSIP</p>
           <h1 className="page-heading break-words">{arsip.perihal}</h1>
           <div className="mt-5 flex flex-wrap items-center gap-5 text-sm text-[var(--text-muted)]">
-            <StatusBadge status={status === "Aktif" ? "active" : "inactive"} />
+            <StatusBadge status={status === 'Aktif' ? 'active' : 'inactive'} />
             <span className="flex items-center gap-2">
               <Calendar size={15} />
               {formatArchiveDate(arsip.tanggalSurat)}
@@ -56,7 +61,7 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
           </div>
         </div>
         <Link
-          to={`/arsip/${encodeURIComponent(arsip.id)}/edit?${new URLSearchParams({ from: getArsipReturnPath(searchParams.get("from")) })}`}
+          to={`/arsip/${encodeURIComponent(arsip.id)}/edit?${new URLSearchParams({ from: getArsipReturnPath(searchParams.get('from')) })}`}
           className="btn-primary"
         >
           <Pencil size={16} /> Edit arsip
@@ -70,13 +75,13 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
               {fields.map(([label, value]) => (
                 <div
                   key={label}
-                  className={label === "Klasifikasi" ? "sm:col-span-2" : ""}
+                  className={label === 'Klasifikasi' ? 'sm:col-span-2' : ''}
                 >
                   <dt className="mb-2 text-xs uppercase tracking-wider text-[var(--text-muted)]">
                     {label}
                   </dt>
                   <dd
-                    className={`break-words text-sm leading-relaxed text-[var(--text-primary)] ${label === "Nomor surat" ? "font-mono" : ""}`}
+                    className={`break-words text-sm leading-relaxed text-[var(--text-primary)] ${label === 'Nomor surat' ? 'font-mono' : ''}`}
                   >
                     {value}
                   </dd>
@@ -92,7 +97,7 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
           <section className="surface">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
               <h2 className="section-heading flex items-center gap-3">
-                <FileText size={19} className="text-[var(--accent-text)]" />{" "}
+                <FileText size={19} className="text-[var(--accent-text)]" />{' '}
                 Dokumen digital
               </h2>
               {links.open && (
@@ -143,8 +148,8 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
                 <Link2 size={28} />
                 <p>
                   {links.open
-                    ? "Pratinjau tidak tersedia untuk tautan ini. Buka dokumen di tab baru."
-                    : "Belum ada dokumen digital yang ditautkan."}
+                    ? 'Pratinjau tidak tersedia untuk tautan ini. Buka dokumen di tab baru.'
+                    : 'Belum ada dokumen digital yang ditautkan.'}
                 </p>
               </div>
             )}
@@ -164,7 +169,7 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
           <section>
             <h2 className="section-heading mb-5">Masa retensi</h2>
             <p className="mb-5 text-3xl font-normal tracking-tight text-[var(--warning)]">
-              {permanent ? "Permanen" : status}
+              {permanent ? 'Permanen' : status}
             </p>
             <dl className="space-y-5 border-l border-[var(--line)] pl-5">
               <div>
@@ -181,16 +186,16 @@ export default function ArsipDetail({ arsip, onBack, klasifikasiList = [] }) {
                 </dt>
                 <dd className="text-sm">
                   {permanent
-                    ? "Arsip permanen"
+                    ? 'Arsip permanen'
                     : arsip.tanggalRetensi
                       ? formatArchiveDate(arsip.tanggalRetensi)
-                      : "Belum ditetapkan"}
+                      : 'Belum ditetapkan'}
                 </dd>
               </div>
             </dl>
             {classification && (
               <p className="mt-5 text-xs leading-relaxed text-[var(--text-muted)]">
-                Klasifikasi: retensi aktif {classification.retensiAktif || 0}{" "}
+                Klasifikasi: retensi aktif {classification.retensiAktif || 0}{' '}
                 tahun, inaktif {classification.retensiInaktif || 0} tahun.
               </p>
             )}

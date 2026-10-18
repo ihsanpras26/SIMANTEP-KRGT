@@ -1,48 +1,36 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from 'react';
 
-const number = new Intl.NumberFormat("id-ID");
-
-export default function ArchiveChart({ data }) {
-  const titleId = useId();
+export default function ArchiveChart({ data, unit }) {
+  const id = useId();
   const container = useRef(null);
-  const [width, setWidth] = useState(660);
+  const [width, setWidth] = useState(640);
   useEffect(() => {
-    const observer = new ResizeObserver(([entry]) => {
-      setWidth(Math.max(280, Math.round(entry.contentRect.width)));
-    });
+    const observer = new ResizeObserver(([entry]) =>
+      setWidth(Math.max(220, Math.round(entry.contentRect.width))),
+    );
     observer.observe(container.current);
     return () => observer.disconnect();
   }, []);
-  const height = width < 400 ? 200 : 250;
-  const left = 36,
-    right = 15,
-    top = 20,
-    bottom = 36;
-  const graphWidth = width - left - right,
-    graphHeight = height - top - bottom;
-  const largest = Math.max(
-    1,
-    ...data.flatMap((point) => [point.Aktif || 0, point.Inaktif || 0]),
-  );
+  const height = 252,
+    left = 34,
+    right = 12,
+    top = 28,
+    bottom = 30;
+  const plotHeight = height - top - bottom;
+  const largest = Math.max(1, ...data.map((point) => point.count));
   const step = Math.max(1, Math.ceil(largest / 4));
-  const maximum = step * 4;
-  const x = (index) =>
-    left + (index * graphWidth) / Math.max(data.length - 1, 1);
-  const y = (value) => top + graphHeight - (value / maximum) * graphHeight;
-  const lines = ["Aktif", "Inaktif"];
-  const colors = { Aktif: "#956dff", Inaktif: "#ffb829" };
-  const hasData = data.some((point) => point.Aktif || point.Inaktif);
-
+  const max = step * 4;
+  const slot = (width - left - right) / Math.max(1, data.length);
+  const barWidth = Math.min(52, slot * 0.55);
+  const y = (value) => top + plotHeight - (value / max) * plotHeight;
+  const interval = Math.max(1, Math.ceil(data.length / (width < 400 ? 7 : 14)));
+  const hasData = data.some((point) => point.count);
   return (
-    <div ref={container} className="archive-chart">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-labelledby={titleId}
-      >
-        <title id={titleId}>
-          Volume arsip aktif dan inaktif per periode. Rincian tersedia pada
-          tabel setelah grafik.
+    <div ref={container} className="report-chart">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={id}>
+        <title id={id}>
+          Jumlah surat per {unit}. Nilai lengkap tersedia pada tabel rincian
+          grafik.
         </title>
         {[0, 1, 2, 3, 4].map((index) => (
           <g key={index}>
@@ -52,95 +40,101 @@ export default function ArchiveChart({ data }) {
               y1={y(index * step)}
               y2={y(index * step)}
               stroke="var(--line)"
-              strokeDasharray={index === 0 ? undefined : "3 5"}
+              strokeDasharray={index ? '3 5' : undefined}
             />
             <text
-              x={left - 12}
+              x={left - 9}
               y={y(index * step) + 4}
               textAnchor="end"
               fill="var(--text-muted)"
               fontSize="10"
             >
-              {number.format(index * step)}
+              {index * step}
             </text>
           </g>
         ))}
         {hasData &&
-          lines.map((key) => (
-            <g key={key}>
-              <polyline
-                points={data
-                  .map((point, index) => `${x(index)},${y(point[key] || 0)}`)
-                  .join(" ")}
-                fill="none"
-                stroke={colors[key]}
-                strokeWidth={key === "Aktif" ? "2.5" : "1.8"}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-              {data.map((point, index) => (
-                <circle
-                  key={point.name}
-                  cx={x(index)}
-                  cy={y(point[key] || 0)}
-                  r="3.5"
-                  fill="var(--surface)"
-                  stroke={colors[key]}
-                  strokeWidth="1.8"
+          data.map((point, index) => {
+            const x = left + slot * index + (slot - barWidth) / 2;
+            return (
+              <g key={point.key} className="report-chart-bar">
+                <rect
+                  x={x}
+                  y={point.count ? y(point.count) : y(0) - 2}
+                  width={barWidth}
+                  height={point.count ? (plotHeight * point.count) / max : 2}
+                  rx={Math.min(5, barWidth / 3)}
+                  fill={
+                    point.count ? 'var(--report-chart-color)' : 'var(--line)'
+                  }
                 >
                   <title>
-                    {point.name}: {number.format(point[key] || 0)} arsip{" "}
-                    {key.toLowerCase()}
+                    {point.label}: {point.count.toLocaleString('id-ID')} arsip
                   </title>
-                </circle>
-              ))}
-            </g>
-          ))}
-        {data.map((point, index) => (
-          <text
-            key={point.name}
-            x={x(index)}
-            y={height - 8}
-            textAnchor="middle"
-            fill="var(--text-muted)"
-            fontSize="10"
-          >
-            {point.name}
-          </text>
-        ))}
+                </rect>
+                {point.count > 0 && data.length <= 12 && (
+                  <text
+                    x={x + barWidth / 2}
+                    y={y(point.count) - 9}
+                    textAnchor="middle"
+                    fill="var(--text-secondary)"
+                    fontSize="11"
+                    fontWeight="500"
+                  >
+                    {point.count}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        {data.map((point, index) =>
+          index % interval === 0 || index === data.length - 1 ? (
+            <text
+              key={point.key}
+              x={left + slot * index + slot / 2}
+              y={height - 8}
+              textAnchor="middle"
+              fill="var(--text-muted)"
+              fontSize="10"
+            >
+              {point.label}
+            </text>
+          ) : null,
+        )}
         {!hasData && (
           <text
-            x={width / 2}
-            y={height / 2 - 10}
+            x={(width + left) / 2}
+            y={height / 2}
             textAnchor="middle"
             fill="var(--text-muted)"
             fontSize="12"
           >
-            Belum ada arsip pada periode ini
+            Tidak ada surat untuk ditampilkan
           </text>
         )}
       </svg>
-      <div className="sr-only">
-        <table>
-          <caption>Rincian volume arsip</caption>
-          <thead>
-            <tr>
-              <th>Periode</th>
-              <th>Aktif</th>
-              <th>Inaktif</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((point) => (
-              <tr key={point.name}>
-                <th>{point.name}</th>
-                <td>{point.Aktif || 0}</td>
-                <td>{point.Inaktif || 0}</td>
+      <details className="report-chart-data">
+        <summary>Lihat angka grafik</summary>
+        <div className="report-chart-data-scroll">
+          <table>
+            <caption className="sr-only">Rincian grafik volume surat</caption>
+            <thead>
+              <tr>
+                <th>Periode</th>
+                <th>Jumlah surat</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {data.map((point) => (
+                <tr key={point.key}>
+                  <th>{point.label}</th>
+                  <td>{point.count.toLocaleString('id-ID')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </div>
   );
 }

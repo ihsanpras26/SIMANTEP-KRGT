@@ -1,404 +1,605 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Archive,
-  ArrowRight,
+  ArrowDown,
+  ArrowUp,
   ArrowUpRight,
-  Plus,
+  ArrowRight,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileCheck2,
   FileText,
-  CheckCheck,
-  Clock3,
-  ChevronDown,
-} from "lucide-react";
-import ArchiveChart from "../components/ArchiveChart";
-import { StatCard } from "../../../components/ui";
+  FolderTree,
+  Info,
+  Loader2,
+  RefreshCw,
+  Users,
+  X,
+} from 'lucide-react';
+import ArchiveChart from '../components/ArchiveChart';
+import { StatCard } from '../../../components/ui';
+import { formatArchiveDate } from '../../arsip/utils/archiveFields';
 
-const number = new Intl.NumberFormat("id-ID");
-const dateFormat = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
+const number = (value) => value.toLocaleString('id-ID');
 const months = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Mei",
-  "Jun",
-  "Jul",
-  "Agu",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Des",
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
 ];
-function formatDate(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : dateFormat.format(date);
+const percent = (value) =>
+  new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(value);
+
+function Ranking({
+  title,
+  subtitle,
+  items,
+  total,
+  kind,
+  missing,
+  onSelect,
+  selected,
+}) {
+  const id =
+    kind === 'classification' ? 'report-classifications' : 'report-senders';
+  return (
+    <section className="report-panel report-ranking" aria-labelledby={id}>
+      <div className="report-panel-heading">
+        <div>
+          <h2 id={id}>{title}</h2>
+          <p>{subtitle}</p>
+        </div>
+        <span className="report-count-badge">Top 5</span>
+      </div>
+      {items.length ? (
+        <ol className="report-ranking-list">
+          {items.slice(0, 5).map((item, index) => (
+            <li key={item.key}>
+              <button
+                type="button"
+                aria-pressed={selected === item.key}
+                onClick={() =>
+                  onSelect({
+                    kind,
+                    key: item.key,
+                    label: item.code
+                      ? `${item.code} · ${item.label}`
+                      : item.label,
+                  })
+                }
+                aria-label={
+                  kind === 'classification'
+                    ? `Lihat ${item.count} arsip klasifikasi ${item.code || 'belum diisi'}`
+                    : `Lihat ${item.count} arsip dari ${item.label}`
+                }
+              >
+                <span className="report-rank-number">{index + 1}</span>
+                <span className="report-rank-content">
+                  <span className="report-rank-title">
+                    {item.code && (
+                      <span className="report-code">{item.code}</span>
+                    )}
+                    {item.label}
+                  </span>
+                  <span className="report-rank-track">
+                    <span
+                      style={{
+                        width: `${total ? (item.count / total) * 100 : 0}%`,
+                      }}
+                    />
+                  </span>
+                </span>
+                <span className="report-rank-count">
+                  {number(item.count)}
+                  <small>
+                    {total ? percent((item.count / total) * 100) : 0}%
+                  </small>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="report-panel-empty">
+          {total
+            ? 'Pengirim belum dicatat pada periode ini.'
+            : 'Belum ada data pada periode ini.'}
+        </p>
+      )}
+      <div className="report-panel-foot">
+        {kind === 'sender' && missing
+          ? `${number(missing)} arsip belum mencantumkan pengirim.`
+          : `Dari ${number(total)} arsip pada periode terpilih.`}
+      </div>
+    </section>
+  );
 }
 
 export default function Dashboard({
-  stats = {},
-  trends = {},
-  activeArchives = [],
-  inactiveArchives = [],
-  archivesByYear = [],
-  navigate,
+  report,
+  facet,
+  onFacetChange,
+  onPeriodChange,
+  onRefresh,
+  refreshing,
+  refreshError,
+  updatedAt,
   setSelectedArsipDetail,
 }) {
-  const [chartFilter, setChartFilter] = useState("years");
-  const currentYear = new Date().getFullYear();
-  const chartData = useMemo(() => {
-    if (chartFilter === "months") {
-      const result = months.map((name) => ({ name, Aktif: 0, Inaktif: 0 }));
-      [
-        [activeArchives, "Aktif"],
-        [inactiveArchives, "Inaktif"],
-      ].forEach(([list, key]) =>
-        list.forEach((archive) => {
-          const date = new Date(archive.tanggalSurat);
-          if (
-            !Number.isNaN(date.getTime()) &&
-            date.getFullYear() === currentYear
-          )
-            result[date.getMonth()][key] += 1;
-        }),
-      );
-      return result;
-    }
-    return Array.from({ length: 5 }, (_, index) => {
-      const year = currentYear - 4 + index;
-      const found = archivesByYear.find((point) => Number(point.name) === year);
-      return {
-        name: year,
-        Aktif: found?.Aktif || 0,
-        Inaktif: found?.Inaktif || 0,
-      };
-    });
-  }, [
-    chartFilter,
-    currentYear,
-    activeArchives,
-    inactiveArchives,
-    archivesByYear,
-  ]);
-  const recentArchives = useMemo(
+  const { metrics, comparison, quality, period } = report;
+  const scope = `${period.year}:${period.month}:${facet?.kind || ''}:${facet?.key || ''}`;
+  const [pageState, setPageState] = useState({ scope, page: 1 });
+  const page = pageState.scope === scope ? pageState.page : 1;
+  const setPage = (page) => setPageState({ scope, page });
+  const detail = useRef(null);
+  const filteredRows = useMemo(
     () =>
-      [
-        ...activeArchives.map((archive) => ({
-          ...archive,
-          dashboardStatus: "active",
-        })),
-        ...inactiveArchives.map((archive) => ({
-          ...archive,
-          dashboardStatus: "inactive",
-        })),
-      ]
-        .sort(
-          (a, b) =>
-            (Date.parse(b.tanggalSurat) || 0) -
-            (Date.parse(a.tanggalSurat) || 0),
-        )
-        .slice(0, 5),
-    [activeArchives, inactiveArchives],
+      report.rows.filter(
+        (item) =>
+          !facet ||
+          (facet.kind === 'missingDigital'
+            ? !item.hasDigital
+            : facet.kind === 'classification'
+              ? item.classificationKey === facet.key
+              : item.senderKey === facet.key),
+      ),
+    [report.rows, facet],
   );
-  const total = stats.total || 0;
-  const active = stats.active || 0;
-  const inactive = stats.inactive || 0;
-  const activePercent = total ? Math.round((active / total) * 100) : 0;
-  const circumference = 2 * Math.PI * 70;
-  const activeLength = total ? (active / total) * circumference : 0;
-  const inactiveLength = total ? (inactive / total) * circumference : 0;
-  const cards = [
-    {
-      title: "Total arsip",
-      value: total,
-      icon: Archive,
-      trend: trends.total,
-      path: "/arsip",
-    },
-    {
-      title: "Arsip aktif",
-      value: active,
-      icon: CheckCheck,
-      trend: trends.active,
-      path: "/arsip?status=active",
-    },
-    {
-      title: "Arsip inaktif",
-      value: inactive,
-      icon: Clock3,
-      trend: trends.inactive,
-      path: "/arsip?status=inactive",
-    },
-  ];
-
+  const pageSize = 6;
+  const pages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, pages);
+  const rows = filteredRows.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const showDetail = (value) => {
+    onFacetChange(value);
+    setPage(1);
+    requestAnimationFrame(() => {
+      detail.current?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
+        block: 'start',
+      });
+      detail.current?.focus({ preventScroll: true });
+    });
+  };
+  const unit =
+    period.year === 'all'
+      ? 'tahun'
+      : period.month === 'all'
+        ? 'bulan'
+        : 'tanggal';
+  const strongest = report.series.reduce(
+    (best, item) => (!best || item.count > best.count ? item : best),
+    null,
+  );
+  const comparisonCaption = !comparison ? (
+    period.year === 'all' ? (
+      'Seluruh arsip tersimpan'
+    ) : (
+      'Periode belum dimulai'
+    )
+  ) : comparison.percent === null ? (
+    'Belum ada data pembanding'
+  ) : comparison.percent === 0 ? (
+    <>Sama dengan {comparison.label}</>
+  ) : (
+    <>
+      <span className="report-comparison">
+        <span>
+          {comparison.percent > 0 ? (
+            <ArrowUp size={12} />
+          ) : (
+            <ArrowDown size={12} />
+          )}
+          {percent(Math.abs(comparison.percent))}%
+        </span>{' '}
+        dibanding {comparison.label}
+      </span>
+    </>
+  );
+  const changePeriod = (patch) => {
+    onPeriodChange(patch);
+  };
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-hero">
+    <div className="management-dashboard" aria-busy={refreshing}>
+      <header className="report-page-heading">
         <div>
+          <p className="report-overline">RINGKASAN MANAJEMEN</p>
           <h1 className="page-heading">Dashboard</h1>
-          <p className="page-description">Ringkasan arsip dan surat terbaru.</p>
+          <p className="page-description">
+            Laporan surat, klasifikasi, dan kelengkapan dokumen.
+          </p>
         </div>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => navigate("/arsip/tambah")}
-        >
-          <Plus size={16} />
-          Tambah arsip
-          <ArrowUpRight size={16} />
-        </button>
-      </div>
-
-      <div className="dashboard-stats">
-        {cards.map((card) => (
-          <StatCard
-            key={card.title}
-            title={card.title}
-            value={card.value}
-            icon={card.icon}
-            trend={card.trend < 0 ? "down" : "up"}
-            trendValue={
-              Number.isFinite(card.trend)
-                ? `${card.trend > 0 ? "+" : ""}${card.trend}`
-                : undefined
+        <Link to="/arsip" className="btn-secondary">
+          Daftar arsip <ArrowUpRight size={15} />
+        </Link>
+      </header>
+      <section className="report-controls" aria-label="Filter laporan">
+        <div className="report-period-icon">
+          <CalendarDays size={19} />
+        </div>
+        <label>
+          <span>Tahun laporan</span>
+          <select
+            aria-label="Tahun laporan"
+            value={period.year}
+            onChange={(event) =>
+              changePeriod({ year: event.target.value, month: 'all' })
             }
-            onClick={() => navigate(card.path)}
-          />
-        ))}
-      </div>
-
-      <div className="dashboard-insights">
-        <section className="dashboard-volume" aria-labelledby="volume-heading">
-          <div className="dashboard-section-header">
-            <div>
-              <p className="section-kicker">AKTIVITAS DOKUMEN</p>
-              <h2 id="volume-heading" className="section-heading">
-                Volume arsip
-              </h2>
-            </div>
-            <div className="chart-select">
-              <select
-                value={chartFilter}
-                onChange={(event) => setChartFilter(event.target.value)}
-                aria-label="Periode grafik arsip"
-              >
-                <option value="years">5 tahun terakhir</option>
-                <option value="months">Tahun {currentYear}</option>
-              </select>
-              <ChevronDown size={13} aria-hidden="true" />
-            </div>
-          </div>
-          <div className="chart-legend">
-            <span>
-              <i />
-              Aktif
-            </span>
-            <span>
-              <i />
-              Inaktif
-            </span>
-          </div>
-          <ArchiveChart data={chartData} />
-          <p className="chart-note">Dikelompokkan berdasarkan tanggal surat.</p>
-        </section>
-        <section
-          className="dashboard-distribution"
-          aria-labelledby="distribution-heading"
-        >
-          <div>
-            <p className="section-kicker">STATUS KOLEKSI</p>
-            <h2 id="distribution-heading" className="section-heading">
-              Komposisi arsip
-            </h2>
-          </div>
-          <div className="distribution-ring">
-            <svg
-              viewBox="0 0 180 180"
-              role="img"
-              aria-label={`${number.format(active)} arsip aktif, ${number.format(inactive)} arsip inaktif`}
-            >
-              <circle
-                cx="90"
-                cy="90"
-                r="70"
-                fill="none"
-                stroke="var(--line)"
-                strokeWidth="9"
-              />
-              {total > 0 && (
-                <g transform="rotate(-90 90 90)">
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke="#8052ff"
-                    strokeWidth="9"
-                    strokeDasharray={`${activeLength} ${circumference}`}
-                  />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke="#ffb829"
-                    strokeWidth="9"
-                    strokeDasharray={`${inactiveLength} ${circumference}`}
-                    strokeDashoffset={-activeLength}
-                  />
-                </g>
-              )}
-            </svg>
-            <div className="distribution-center">
-              <span>
-                {activePercent}
-                <small>%</small>
-              </span>
-              <p>arsip aktif</p>
-            </div>
-          </div>
-          <div className="distribution-legend">
-            <button
-              type="button"
-              onClick={() => navigate("/arsip?status=active")}
-            >
-              <span>
-                <i />
-                Aktif
-              </span>
-              <strong>{number.format(active)}</strong>
-              <ArrowUpRight size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/arsip?status=inactive")}
-            >
-              <span>
-                <i />
-                Inaktif
-              </span>
-              <strong>{number.format(inactive)}</strong>
-              <ArrowUpRight size={13} />
-            </button>
-          </div>
-        </section>
-      </div>
-
-      <section className="dashboard-recent" aria-labelledby="recent-heading">
-        <div className="dashboard-section-header">
-          <div>
-            <p className="section-kicker">KOLEKSI TERKINI</p>
-            <h2 id="recent-heading" className="section-heading">
-              Arsip terbaru
-            </h2>
-            <p className="section-description">
-              Lima dokumen dengan tanggal surat terbaru.
-            </p>
-          </div>
+          >
+            <option value="all">Semua tahun</option>
+            {report.availableYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Bulan laporan</span>
+          <select
+            aria-label="Bulan laporan"
+            value={period.month}
+            disabled={period.year === 'all'}
+            onChange={(event) => changePeriod({ month: event.target.value })}
+          >
+            <option value="all">Semua bulan</option>
+            {months.map((month, index) => (
+              <option key={month} value={index + 1}>
+                {month}
+              </option>
+            ))}
+          </select>
+        </label>
+        {period.year !== 'all' && (
           <button
             type="button"
-            className="btn-ghost dashboard-view-all"
-            onClick={() => navigate("/arsip")}
+            className="btn-ghost report-reset"
+            onClick={() => changePeriod({ year: 'all', month: 'all' })}
+            aria-label="Reset periode"
           >
-            Lihat semua
-            <ArrowRight size={15} />
+            <X size={14} />
+            <span>Reset</span>
+          </button>
+        )}
+        <div className="report-sync">
+          <span role="status" aria-live="polite">
+            {refreshing
+              ? 'Memperbarui laporan…'
+              : updatedAt
+                ? `Diperbarui ${new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(new Date(updatedAt))}`
+                : 'Laporan siap'}
+          </span>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Perbarui laporan"
+            title="Perbarui laporan"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <Loader2 size={17} className="animate-spin" />
+            ) : (
+              <RefreshCw size={17} />
+            )}
           </button>
         </div>
-        {recentArchives.length ? (
-          <div
-            className="table-scroll"
-            role="region"
-            aria-label="Arsip terbaru, geser untuk kolom lainnya"
-            tabIndex={0}
-          >
-            <table className="data-table recent-archives-table">
-              <thead>
-                <tr>
-                  <th>Dokumen</th>
-                  <th>Nomor surat</th>
-                  <th>Tanggal</th>
-                  <th>Status</th>
-                  <th>
-                    <span className="sr-only">Buka arsip</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentArchives.map((archive) => (
-                  <tr key={archive.id}>
-                    <td>
-                      <button
-                        type="button"
-                        className="recent-document"
-                        onClick={() =>
-                          setSelectedArsipDetail
-                            ? setSelectedArsipDetail(archive)
-                            : navigate(
-                                `/arsip/${encodeURIComponent(archive.id)}`,
-                              )
-                        }
-                      >
-                        <span className="document-icon">
-                          <FileText size={17} />
-                        </span>
-                        <span>{archive.perihal || "Tanpa perihal"}</span>
-                      </button>
-                    </td>
-                    <td className="recent-number">
-                      {archive.nomorSurat || "—"}
-                    </td>
-                    <td className="recent-date">
-                      {formatDate(archive.tanggalSurat)}
-                    </td>
-                    <td>
-                      <span
-                        className={`status-pill ${archive.dashboardStatus === "active" ? "status-active" : "status-inactive"}`}
-                      >
-                        {archive.dashboardStatus === "active"
-                          ? "Aktif"
-                          : "Inaktif"}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label={`Buka ${archive.perihal || "arsip"}`}
-                        onClick={() =>
-                          setSelectedArsipDetail
-                            ? setSelectedArsipDetail(archive)
-                            : navigate(
-                                `/arsip/${encodeURIComponent(archive.id)}`,
-                              )
-                        }
-                      >
-                        <ArrowUpRight size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      </section>
+      {refreshError && (
+        <div className="dialog-error report-refresh-error" role="alert">
+          <span>
+            Laporan belum diperbarui sepenuhnya. Data yang tersedia tetap
+            ditampilkan.
+          </span>
+          <button type="button" className="btn-ghost" onClick={onRefresh}>
+            Coba lagi
+          </button>
+        </div>
+      )}
+      <div className="report-scope">
+        <span>
+          <span className="report-live-dot" />
+          {report.label}
+          {report.end && comparison?.partial
+            ? ` · s.d. ${formatArchiveDate(report.end)}`
+            : ''}
+        </span>
+        <span>Berdasarkan tanggal surat</span>
+      </div>
+      <div className="report-metrics">
+        <StatCard
+          title="Total arsip"
+          value={metrics.total}
+          icon={Archive}
+          caption={comparisonCaption}
+        />
+        <StatCard
+          title="Dokumen digital"
+          value={metrics.digital}
+          icon={FileCheck2}
+          caption={
+            metrics.digitalPercent === null
+              ? 'Belum ada arsip pada periode ini'
+              : `${metrics.digitalPercent}% memiliki tautan atau file`
+          }
+        >
+          <div className="report-coverage-track" aria-hidden="true">
+            <span style={{ width: `${metrics.digitalPercent || 0}%` }} />
           </div>
-        ) : (
-          <div className="empty-state">
-            <Archive size={28} />
-            <p>Koleksi Anda dimulai di sini.</p>
-            <span>Tambahkan arsip pertama untuk mulai menata dokumen.</span>
+          {metrics.missingDigital > 0 && (
             <button
               type="button"
-              className="btn-ghost"
-              onClick={() => navigate("/arsip/tambah")}
+              className="report-metric-action"
+              aria-label={`Lihat ${metrics.missingDigital} arsip tanpa dokumen`}
+              onClick={() =>
+                showDetail({
+                  kind: 'missingDigital',
+                  label: 'Tanpa dokumen digital',
+                })
+              }
             >
-              Tambah arsip
-              <ArrowUpRight size={15} />
+              {number(metrics.missingDigital)} belum dilampirkan{' '}
+              <ArrowRight size={12} />
             </button>
+          )}
+        </StatCard>
+        <StatCard
+          title="Klasifikasi digunakan"
+          value={metrics.classifications}
+          icon={FolderTree}
+          caption={
+            quality.unknownClassification
+              ? `${number(quality.unknownClassification)} arsip belum memiliki kode terdaftar`
+              : 'Kode terdaftar pada periode ini'
+          }
+        />
+        <StatCard
+          title="Pengirim tercatat"
+          value={metrics.senders}
+          icon={Users}
+          caption={
+            quality.missingSender
+              ? `${number(quality.missingSender)} arsip tanpa nama pengirim`
+              : 'Instansi atau nama pengirim berbeda'
+          }
+        />
+      </div>
+      {(quality.undated > 0 || comparison?.partial) && (
+        <div className="report-data-note">
+          <Info size={14} />
+          <p>
+            {quality.undated > 0 && (
+              <span>
+                {number(quality.undated)} arsip tanpa tanggal valid{' '}
+                {period.year === 'all'
+                  ? 'tetap dihitung dalam total, tetapi tidak masuk grafik.'
+                  : 'tidak masuk periode terpilih.'}{' '}
+              </span>
+            )}
+            {comparison?.partial && (
+              <span>
+                Pembanding {comparison.label} dihitung sampai{' '}
+                {formatArchiveDate(comparison.end)} agar durasinya setara.
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+      <div className="report-grid">
+        <section
+          className="report-panel report-volume"
+          aria-labelledby="report-volume-title"
+        >
+          <div className="report-panel-heading">
+            <div>
+              <h2 id="report-volume-title">Volume surat</h2>
+              <p>
+                Jumlah arsip per {unit} · {report.label.toLowerCase()}
+              </p>
+            </div>
+            <span className="report-chart-legend">
+              <i />
+              Jumlah surat
+            </span>
           </div>
-        )}
-      </section>
+          <ArchiveChart data={report.series} unit={unit} />
+          <div className="report-panel-foot">
+            {strongest?.count > 0 ? (
+              <>
+                Terbanyak:{' '}
+                <strong>
+                  {strongest.label}
+                  {period.month !== 'all'
+                    ? ` ${months[Number(period.month) - 1]}`
+                    : ''}
+                </strong>{' '}
+                · {number(strongest.count)} surat
+              </>
+            ) : (
+              'Pilih periode lain untuk melihat volume surat.'
+            )}
+          </div>
+        </section>
+        <Ranking
+          title="Klasifikasi terbanyak"
+          subtitle="Kelompok surat pada periode ini"
+          kind="classification"
+          selected={facet?.kind === 'classification' ? facet.key : null}
+          items={report.classifications}
+          total={metrics.total}
+          onSelect={showDetail}
+        />
+        <section
+          ref={detail}
+          className="report-panel report-detail"
+          aria-labelledby="report-detail-title"
+          tabIndex={-1}
+        >
+          <div className="report-panel-heading">
+            <div>
+              <h2 id="report-detail-title">Rincian arsip</h2>
+              <p>
+                {number(filteredRows.length)} arsip
+                {facet
+                  ? ` · ${facet.label}`
+                  : ` · ${report.label.toLowerCase()}`}
+              </p>
+            </div>
+            {facet && (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  onFacetChange(null);
+                  setPage(1);
+                }}
+                aria-label="Reset rincian"
+              >
+                <X size={14} />
+                Reset
+              </button>
+            )}
+          </div>
+          {rows.length ? (
+            <>
+              <div className="report-table-scroll">
+                <table className="report-table">
+                  <thead>
+                    <tr>
+                      <th>Surat</th>
+                      <th>Tanggal</th>
+                      <th>Klasifikasi</th>
+                      <th>Dokumen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <button
+                            type="button"
+                            className="report-document-link"
+                            onClick={() => setSelectedArsipDetail(item)}
+                          >
+                            {item.perihal || 'Tanpa perihal'}
+                            <ArrowUpRight size={13} />
+                          </button>
+                          <span className="report-row-meta">
+                            {item.nomorSurat || 'Tanpa nomor'} ·{' '}
+                            {item.senderLabel || 'Tanpa pengirim'}
+                          </span>
+                        </td>
+                        <td className="report-date">
+                          {formatArchiveDate(item.tanggalSurat)}
+                        </td>
+                        <td>
+                          <span className="report-code">
+                            {item.classificationCode || '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`report-document-status ${item.hasDigital ? 'is-attached' : 'is-missing'}`}
+                          >
+                            {item.hasDigital ? (
+                              <Check size={12} />
+                            ) : (
+                              <FileText size={12} />
+                            )}
+                            {item.hasDigital ? 'Tertaut' : 'Belum ada'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="report-table-footer">
+                <span>
+                  {number((currentPage - 1) * pageSize + 1)}–
+                  {number(
+                    Math.min(currentPage * pageSize, filteredRows.length),
+                  )}{' '}
+                  dari {number(filteredRows.length)} arsip
+                </span>
+                <div>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Halaman rincian sebelumnya"
+                    disabled={currentPage === 1}
+                    onClick={() => setPage(currentPage - 1)}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span>
+                    {currentPage} / {pages}
+                  </span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Halaman rincian berikutnya"
+                    disabled={currentPage === pages}
+                    onClick={() => setPage(currentPage + 1)}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="report-detail-empty">
+              <Archive size={27} />
+              <h3>
+                {facet
+                  ? 'Tidak ada arsip untuk rincian ini'
+                  : report.sourceTotal
+                    ? 'Belum ada arsip pada periode ini'
+                    : 'Belum ada arsip tersimpan'}
+              </h3>
+              <p>
+                {report.sourceTotal
+                  ? 'Coba periode lain untuk melihat laporan.'
+                  : 'Tambahkan arsip untuk mulai melihat laporan.'}
+              </p>
+              {!report.sourceTotal && (
+                <Link className="btn-secondary" to="/arsip/tambah">
+                  Tambah arsip <ArrowRight size={14} />
+                </Link>
+              )}
+            </div>
+          )}
+        </section>
+        <Ranking
+          title="Pengirim terbanyak"
+          subtitle="Instansi dan nama pengirim"
+          kind="sender"
+          selected={facet?.kind === 'sender' ? facet.key : null}
+          items={report.senders}
+          total={metrics.total}
+          missing={quality.missingSender}
+          onSelect={showDetail}
+        />
+      </div>
+      <p className="report-method-note">
+        Dokumen digital dihitung dari tautan atau file yang tercatat. Izin akses
+        dokumen belum diperiksa.
+      </p>
     </div>
   );
 }

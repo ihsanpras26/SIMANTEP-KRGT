@@ -52,7 +52,7 @@ export function updateListParams(params, patch) {
 }
 
 export function getArsipReturnPath(value) {
-  return typeof value === 'string' && /^\/(arsip|semua-arsip)(\?|$)/.test(value) ? value : '/arsip';
+  return typeof value === 'string' && /^\/(?:arsip|semua-arsip)?(\?|$)/.test(value) ? value : '/arsip';
 }
 
 export function matchesArsipSearch(arsip, query) {

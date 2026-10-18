@@ -33,8 +33,8 @@ test('pagination/view changes preserve filters and defaults are omitted from URL
   assert.equal(readListState(updateListParams(params, { page: 4 })).filterStatus, 'active');
   assert.equal(updateListParams(params, { filterStatus: 'all' }).toString(), '');
 });
-test('detail return links allow only the two list routes', () => {
-  for (const path of ['/arsip?status=active&page=2', '/semua-arsip?q=DLH']) assert.equal(getArsipReturnPath(path), path);
+test('detail return links allow only list routes and the dashboard report', () => {
+  for (const path of ['/', '/?year=2026&month=1&group=sender&value=dlh', '/arsip?status=active&page=2', '/semua-arsip?q=DLH']) assert.equal(getArsipReturnPath(path), path);
   for (const path of ['//evil.test', 'https://evil.test', '/arsip/other', '/arsip/tambah', undefined]) assert.equal(getArsipReturnPath(path), '/arsip');
 });
 test('command search uses actual archive number, subject, and sender fields', () => {
